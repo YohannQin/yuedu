@@ -47,9 +47,9 @@ function videoHtml(config) {
 		video_sniffer = false,
         host = String(this.baseUrl),
         related_flag = false,
-		related_selector = ''
+		related_selector = '',
         other_html = '',
-        style = ''
+        style = '',
     } = config;
 
 	if (html && typeof html !== 'string') {
