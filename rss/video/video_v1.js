@@ -227,3 +227,8 @@ function videoHtml(config) {
 </html>`
 
 }
+
+function getString(x, r) {
+    return r == undefined ? String(this.java.getString(x)) : String(this.java.getString(x,r));
+}
+
