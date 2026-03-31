@@ -9,6 +9,7 @@ let config = {
 	
 	video_url: string			// 可选：视频连接
 	video_sniffer: boolean		// 可选：是否使用默认的视频嗅探，待实现
+	hls_plugin: boolean			// 可选：是否使用hls播放视频，artplayer无法识别时，使用hls播放m3u8
 
     host?: string,              // 可选：默认不填，用baseUrl解析相对路径链接，有误时手动填写
     
@@ -45,6 +46,7 @@ function videoHtml(config) {
         post_img = '',
         video_url = '',
 		video_sniffer = false,
+		hls_plugin = false,
         host = String(this.baseUrl),
         related_flag = false,
 		related_selector = '',
@@ -96,6 +98,12 @@ function videoHtml(config) {
 
 <!-- unpkg -->
 <script src="https://unpkg.com/artplayer/dist/artplayer.js"></script>
+
+<!-- hls plugin -->
+<script src="https://cdn.jsdelivr.net/npm/artplayer-plugin-hls-control@1.1.0/dist/artplayer-plugin-hls-control.min.js"></script>
+
+<!-- hls -->
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.15/dist/hls.min.js"></script>
 
 </head>
 
@@ -167,6 +175,7 @@ function videoHtml(config) {
 
 	window.local = true;
 
+	
 	let art = new Artplayer({
         container: '.artplayer-app',
         url: '${video_url}',
@@ -187,16 +196,39 @@ function videoHtml(config) {
         autoOrientation: true,
         pip:false,
       });
+	  
+  	if (${hls_plugin}) {
+		art.type = 'm3u8'
+		art.customType = {
+			'm3u8': m3u8_play,
+		}
+	}
+	
+	function m3u8_play(video, url, art) {
+		if (Hls.isSupported()) {
+			if (art.hls)
+				art.hls.destroy()
+			const hls = new Hls()
+			hls.loadSource(url)
+			hls.attachMedia(video)
+			art.hls = hls
+			art.on('destroy', () => hls.destroy())
+		} else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+			video.src = url
+		} else {
+			art.notice.show = 'Unsupported playback format: m3u8'
+		}
+	}
       
-      art.once('ready', () => {
-          let times = art.storage.get('times');
-          art.currentTime = times[art.option.url];
-          const ratio = art.video.videoWidth / art.video.videoHeight;
-          //alert(ratio);
-          //art.aspect-ratio = ratio;
-          //container.style.aspect-ratio = ratio;
-          updateVideoSize();
-         });
+	art.once('ready', () => {
+		let times = art.storage.get('times');
+		art.currentTime = times[art.option.url];
+		const ratio = art.video.videoWidth / art.video.videoHeight;
+		//alert(ratio);
+		//art.aspect-ratio = ratio;
+		//container.style.aspect-ratio = ratio;
+		updateVideoSize();
+	 });
        
 	function updateVideoSize() {
 		const wrapper = document.querySelector('.artplayer-app');
