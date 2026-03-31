@@ -91,6 +91,8 @@ function videoHtml(config) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no" />
 
+<script>globalThis.CUSTOM_USER_AGENT = 'iphone'</script>
+
 <!-- jsdelivr -->
 <script src="https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js"></script>
 
