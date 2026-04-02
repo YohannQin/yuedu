@@ -103,7 +103,7 @@ function videoHtml(config) {
 
 <style>
 	body {
-		background-image: url('https://q1.itc.cn/q_70/images03/20250401/7f65e2bc7b5f4934a81ea0f9105c8ff9.jpeg'); /* background-color:#EFF5FF;*/
+		background-image: url('https://c-ssl.dtstatic.com/uploads/item/201605/20/20160520121629_QmrAu.thumb.700_0.jpeg'); /* background-color:#EFF5FF;*/
 		margin:0;
 		padding:0;
 		width:100%;
