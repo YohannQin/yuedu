@@ -1,141 +1,183 @@
-这个实现是不是更好
+分析下这个
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>动态媒体卡片生成器</title>
+    <title>原生DOM操作构建卡片</title>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f4f9; padding: 20px; }
+        body { font-family: sans-serif; background: #f4f4f9; padding: 20px; }
         
-        /* 卡片容器样式 */
         .media-card {
             background: #fff;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #ddd;
             border-radius: 8px;
             padding: 20px;
             max-width: 500px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-            transition: transform 0.2s;
+            margin: 0 auto 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
-        .media-card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
 
-        /* 时间样式 */
-        .time-info { color: #888; font-size: 0.85em; margin-bottom: 10px; display: block; }
-        .time-info time { font-weight: bold; color: #333; }
+        /* 通用行样式 */
+        .info-row { margin-bottom: 10px; font-size: 15px; line-height: 1.6; }
+        .label { font-weight: bold; color: #333; margin-right: 8px; }
 
-        /* 演员样式 */
-        .actors-info { margin-bottom: 15px; font-size: 0.95em; }
-        .actor-link { color: #007BFF; text-decoration: none; margin-right: 8px; border-bottom: 1px dashed #007BFF; }
-        .actor-link:hover { color: #0056b3; border-bottom-style: solid; }
-        .actor-text { color: #555; margin-right: 8px; }
-
+        /* 演员链接样式 */
+        .actor-link { color: #007BFF; text-decoration: none; }
+        .actor-link:hover { text-decoration: underline; }
+        
         /* 标签样式 */
-        .tags-container { display: flex; flex-wrap: wrap; gap: 8px; }
-        .tag-item { font-size: 0.8em; padding: 4px 10px; border-radius: 4px; background: #f0f2f5; color: #444; text-decoration: none; transition: background 0.2s; }
-        .tag-item:hover { background: #e2e6ea; }
-        .tag-link { cursor: pointer; border: 1px solid #ddd; }
-        .tag-text { border: 1px solid transparent; }
+        .tag-link { color: #555; text-decoration: none; background: #eee; padding: 2px 6px; border-radius: 4px; }
+        .tag-link:hover { background: #ddd; }
+
+        /* 简介样式 */
+        .description-box { margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; }
+        .description-box h4 { margin: 0 0 8px 0; font-size: 16px; color: #333; }
+        .description-text { color: #666; font-size: 14px; line-height: 1.5; margin: 0; }
     </style>
 </head>
 <body>
 
-    <!-- 内容将通过 JS 插入到这里 -->
     <div id="app"></div>
 
     <script>
-        /**
-         * 创建媒体卡片的函数
-         * @param {Object} data - 包含时间、演员、标签的数据对象
-         */
         function createMediaCard(data) {
-            // 1. 创建主容器
             const card = document.createElement('div');
             card.className = 'media-card';
 
-            // 2. 处理时间 (使用语义化 time 标签)
-            const timeSpan = document.createElement('span');
-            timeSpan.className = 'time-info';
-            timeSpan.innerHTML = `上映时间：<time datetime="${data.time}">${data.time}</time>`;
-            card.appendChild(timeSpan);
+            // --- 1. 时间部分 ---
+            // 判断：数据存在
+            if (data.time) {
+                const timeRow = document.createElement('div');
+                timeRow.className = 'info-row';
+                
+                // 创建标签文本节点
+                const labelSpan = document.createElement('span');
+                labelSpan.className = 'label';
+                labelSpan.textContent = '时间：';
+                
+                // 创建时间文本节点 (不再使用 <time> 标签，也不使用 innerHTML)
+                const timeText = document.createTextNode(data.time);
+                
+                timeRow.appendChild(labelSpan);
+                timeRow.appendChild(timeText);
+                card.appendChild(timeRow);
+            }
 
-            // 3. 处理演员 (核心逻辑：判断是否有 href)
-            const actorsDiv = document.createElement('div');
-            actorsDiv.className = 'actors-info';
-            
-            data.actors.forEach(actor => {
-                if (actor.href) {
-                    // 有链接：创建 <a> 标签
-                    const link = document.createElement('a');
-                    link.href = actor.href;
-                    link.className = 'actor-link';
-                    link.textContent = actor.name;
-                    link.target = '_blank'; // 可选：新窗口打开
-                    actorsDiv.appendChild(link);
-                } else {
-                    // 无链接：创建纯文本 span
-                    const text = document.createElement('span');
-                    text.className = 'actor-text';
-                    text.textContent = actor.name;
-                    actorsDiv.appendChild(text);
-                }
-            });
-            card.appendChild(actorsDiv);
+            // --- 2. 演员部分 ---
+            // 判断：是数组 且 长度大于0
+            if (Array.isArray(data.actors) && data.actors.length > 0) {
+                const actorsRow = document.createElement('div');
+                actorsRow.className = 'info-row';
+                
+                const actorsLabel = document.createElement('span');
+                actorsLabel.className = 'label';
+                actorsLabel.textContent = '演员：';
+                actorsRow.appendChild(actorsLabel);
 
-            // 4. 处理标签 (核心逻辑：判断是否有 href)
-            const tagsDiv = document.createElement('div');
-            tagsDiv.className = 'tags-container';
+                data.actors.forEach((actor, index) => {
+                    // 逻辑：有链接用 <a>，无链接用 <span>
+                    if (actor.href) {
+                        const link = document.createElement('a');
+                        link.href = actor.href;
+                        link.className = 'actor-link';
+                        link.textContent = actor.name;
+                        actorsRow.appendChild(link);
+                    } else {
+                        const text = document.createElement('span');
+                        text.textContent = actor.name;
+                        actorsRow.appendChild(text);
+                    }
 
-            data.tags.forEach(tag => {
-                if (tag.href) {
-                    // 有链接：创建 <a> 标签
-                    const link = document.createElement('a');
-                    link.href = tag.href;
-                    link.className = 'tag-item tag-link';
-                    link.textContent = tag.name;
-                    tagsDiv.appendChild(link);
-                } else {
-                    // 无链接：创建纯文本 span
-                    const text = document.createElement('span');
-                    text.className = 'tag-item tag-text';
-                    text.textContent = tag.name;
-                    tagsDiv.appendChild(text);
-                }
-            });
-            card.appendChild(tagsDiv);
+                    // 分隔符： / 
+                    if (index < data.actors.length - 1) {
+                        actorsRow.appendChild(document.createTextNode(' / '));
+                    }
+                });
+                card.appendChild(actorsRow);
+            }
+
+            // --- 3. 标签部分 ---
+            // 判断：是数组 且 长度大于0
+            if (Array.isArray(data.tags) && data.tags.length > 0) {
+                const tagsRow = document.createElement('div');
+                tagsRow.className = 'info-row';
+
+                const tagsLabel = document.createElement('span');
+                tagsLabel.className = 'label';
+                tagsLabel.textContent = '标签：';
+                tagsRow.appendChild(tagsLabel);
+
+                data.tags.forEach((tag, index) => {
+                    // 逻辑：有链接用 <a>，无链接用 <span>
+                    if (tag.href) {
+                        const link = document.createElement('a');
+                        link.href = tag.href;
+                        link.className = 'tag-link';
+                        link.textContent = tag.name;
+                        tagsRow.appendChild(link);
+                    } else {
+                        const text = document.createElement('span');
+                        text.textContent = tag.name;
+                        tagsRow.appendChild(text);
+                    }
+
+                    // 分隔符：空格
+                    if (index < data.tags.length - 1) {
+                        tagsRow.appendChild(document.createTextNode(' '));
+                    }
+                });
+                card.appendChild(tagsRow);
+            }
+
+            // --- 4. 简介部分 ---
+            // 判断：数据存在
+            if (data.description) {
+                const descBox = document.createElement('div');
+                descBox.className = 'description-box';
+                
+                const descTitle = document.createElement('h4');
+                descTitle.textContent = '简介';
+                descBox.appendChild(descTitle);
+
+                const descText = document.createElement('p');
+                descText.className = 'description-text';
+                descText.textContent = data.description;
+                descBox.appendChild(descText);
+
+                card.appendChild(descBox);
+            }
 
             return card;
         }
 
-        // --- 模拟数据 ---
+        // --- 测试数据 ---
 
-        // 场景 1: 混合数据 (有的有链接，有的没有)
-        const movieData = {
-            time: '2026-04-01 14:00',
+        // 场景 1: 数据完整
+        const fullData = {
+            time: '2026-04-06 17:00',
             actors: [
-                { name: '基努·里维斯', href: '/actor/keanu-reeves' }, // 有链接
-                { name: '凯瑞-安·莫斯' },                           // 无链接
-                { name: '劳伦斯·菲什伯恩', href: '/actor/laurence' } // 有链接
+                { name: '基努·里维斯', href: '/actor/keanu' },
+                { name: '凯瑞-安·莫斯' } // 无链接
             ],
             tags: [
-                { name: '科幻', href: '/tag/sci-fi' },
-                { name: '动作' },
-                { name: '赛博朋克', href: '/tag/cyberpunk' }
-            ]
+                { name: '科幻', href: '/tag/scifi' },
+                { name: '动作' }
+            ],
+            description: '这是使用原生 DOM 方法构建的完整卡片。'
         };
 
-        // 场景 2: 纯文本数据 (全部没有链接)
-        const simpleData = {
-            time: '2025-12-25',
-            actors: [ { name: '张三' }, { name: '李四' } ],
-            tags: [ { name: '喜剧' }, { name: '家庭' } ]
+        // 场景 2: 数据缺失
+        const partialData = {
+            time: '', // 空，不显示
+            actors: [], // 空，不显示
+            tags: [ { name: '仅标签' } ],
+            description: null // 空，不显示
         };
 
-        // --- 渲染 ---
-        const app = document.getElementById('app');
-        app.appendChild(createMediaCard(movieData));
-        app.appendChild(createMediaCard(simpleData));
+        // 渲染
+        document.getElementById('app').appendChild(createMediaCard(fullData));
+        document.getElementById('app').appendChild(createMediaCard(partialData));
 
     </script>
 </body>
