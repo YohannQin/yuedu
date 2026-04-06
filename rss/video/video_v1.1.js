@@ -1,14 +1,21 @@
 /*
 该函数适用于视频播放页面。
 let config = {
-	html: string				// 可选：当前网页html
+	html: string					// 可选：当前网页html
 	
-    title: string,      		// 必须：视频标题
-	actor: string,      		// 可选：演员信息
+    title: string,      			// 必须：视频标题
+	actor_list: string/Array,   	// 可选：演员信息
+	actor_href_ist: string/Array, 	// 可选：演员链接
+
+	tag_list: string/Array,   		// 可选：tag 信息
+	tag_href_ist: string/Array, 	// 可选：tag 链接
+
 	post_img: string			// 可选：视频封面
 	
 	video_url: string			// 可选：视频连接
 	video_sniffer: boolean		// 可选：是否使用默认的视频嗅探，待实现
+
+	description: string			// 可选：简介
 
     host?: string,              // 可选：默认不填，用baseUrl解析相对路径链接，有误时手动填写
     
@@ -41,10 +48,15 @@ function videoHtml(config) {
     let {
 		html = '',
 		title = '',
-		actor = '',
+		time_str = '',
+		actor_list = [],
+		actor_href_list = [],
+		tag_list = [],
+		tag_href_list = [],
         post_img = '',
         video_url = '',
 		video_sniffer = false,
+		description = '',
         host = String(this.baseUrl),
         related_flag = false,
 		related_selector = '',
@@ -55,6 +67,9 @@ function videoHtml(config) {
 	if (html && typeof html !== 'string') {
         throw new TypeError(`< error: html 必须是 string 类型，当前值：${JSON.stringify(html)} >`);
     }
+
+	actor = createDictList(toArrayIfString(actor_list), toArrayIfString(actor_href_list));
+	tags = createDictList(toArrayIfString(tag_list), toArrayIfString(tag_href_list));
 
 	/*
 	let post_img = '';
@@ -103,7 +118,7 @@ function videoHtml(config) {
 
 <style>
 	body {
-		background-image: url('https://c-ssl.dtstatic.com/uploads/item/201605/20/20160520121629_QmrAu.thumb.700_0.jpeg'); /* background-color:#EFF5FF;*/
+		background-image: url('https://q7.itc.cn/q_70/images03/20240119/f6c1f3416697497f91c0a39bcd172045.jpeg'); /* background-color:#EFF5FF;*/
 		margin:0;
 		padding:0;
 		width:100%;
@@ -149,8 +164,13 @@ function videoHtml(config) {
 		</div>
 	</div>
 
-	<!-- 标题 -->
-	<h4>${title}</h4> <br>
+
+	<!-- 内容将通过 JS 插入到这里 -->
+    <div id="app">
+		<!-- 标题 -->
+		<h4>${title}</h4> <br>
+
+	</div>
 
     ${other_html}
 
@@ -222,6 +242,17 @@ function videoHtml(config) {
 		art.height = finalHeight;
 		wrapper.style.height = finalHeight + 'px';
 	}
+
+	/* movie data */
+	const movieData = {
+		time: '${time_str}',
+		actor: ${actors},
+		tags: ${tags},
+	}
+
+	// --- 渲染 ---
+	const app = document.getElementById('app');
+	app.appendChild(createMediaCard(movieData));
       
 </script>
 
@@ -235,64 +266,98 @@ function getString(x, r) {
 }
 
 /**
-         * 创建媒体卡片的函数
-         * @param {Object} data - 包含时间、演员、标签的数据对象
-         */
-        function createMediaCard(data) {
-            // 1. 创建主容器
-            const card = document.createElement('div');
-            card.className = 'media-card';
+ * 创建媒体卡片的函数
+ * @param {Object} data - 包含时间、演员、标签的数据对象
+ */
+function createMediaCard(data) {
+	// 1. 创建主容器
+	const card = document.createElement('div');
+	card.className = 'media-card';
 
-            // 2. 处理时间 (使用语义化 time 标签)
-            const timeSpan = document.createElement('span');
-            timeSpan.className = 'time-info';
-            timeSpan.innerHTML = `上映时间：<time datetime="${data.time}">${data.time}</time>`;
-            card.appendChild(timeSpan);
+	// 2. 处理时间 (使用语义化 time 标签)
+	const timeSpan = document.createElement('span');
+	timeSpan.className = 'time-info';
+	timeSpan.innerHTML = `时间：<time datetime="${data.time}">${data.time}</time>`;
+	card.appendChild(timeSpan);
 
-            // 3. 处理演员 (核心逻辑：判断是否有 href)
-            const actorsDiv = document.createElement('div');
-            actorsDiv.className = 'actors-info';
-            
-            data.actors.forEach(actor => {
-                if (actor.href) {
-                    // 有链接：创建 <a> 标签
-                    const link = document.createElement('a');
-                    link.href = actor.href;
-                    link.className = 'actor-link';
-                    link.textContent = actor.name;
-                    link.target = '_blank'; // 可选：新窗口打开
-                    actorsDiv.appendChild(link);
-                } else {
-                    // 无链接：创建纯文本 span
-                    const text = document.createElement('span');
-                    text.className = 'actor-text';
-                    text.textContent = actor.name;
-                    actorsDiv.appendChild(text);
-                }
-            });
-            card.appendChild(actorsDiv);
+	// 3. 处理演员 (核心逻辑：判断是否有 href)
+	const actorsDiv = document.createElement('div');
+	actorsDiv.className = 'actors-info';
+	
+	data.actors.forEach(actor => {
+		if (actor.href) {
+			// 有链接：创建 <a> 标签
+			const link = document.createElement('a');
+			link.href = actor.href;
+			link.className = 'actor-link';
+			link.textContent = actor.name;
+			link.target = '_blank'; // 可选：新窗口打开
+			actorsDiv.appendChild(link);
+		} else {
+			// 无链接：创建纯文本 span
+			const text = document.createElement('span');
+			text.className = 'actor-text';
+			text.textContent = actor.name;
+			actorsDiv.appendChild(text);
+		}
+	});
+	card.appendChild(actorsDiv);
 
-            // 4. 处理标签 (核心逻辑：判断是否有 href)
-            const tagsDiv = document.createElement('div');
-            tagsDiv.className = 'tags-container';
+	// 4. 处理标签 (核心逻辑：判断是否有 href)
+	const tagsDiv = document.createElement('div');
+	tagsDiv.className = 'tags-container';
 
-            data.tags.forEach(tag => {
-                if (tag.href) {
-                    // 有链接：创建 <a> 标签
-                    const link = document.createElement('a');
-                    link.href = tag.href;
-                    link.className = 'tag-item tag-link';
-                    link.textContent = tag.name;
-                    tagsDiv.appendChild(link);
-                } else {
-                    // 无链接：创建纯文本 span
-                    const text = document.createElement('span');
-                    text.className = 'tag-item tag-text';
-                    text.textContent = tag.name;
-                    tagsDiv.appendChild(text);
-                }
-            });
-            card.appendChild(tagsDiv);
+	data.tags.forEach(tag => {
+		if (tag.href) {
+			// 有链接：创建 <a> 标签
+			const link = document.createElement('a');
+			link.href = tag.href;
+			link.className = 'tag-item tag-link';
+			link.textContent = tag.name;
+			tagsDiv.appendChild(link);
+		} else {
+			// 无链接：创建纯文本 span
+			const text = document.createElement('span');
+			text.className = 'tag-item tag-text';
+			text.textContent = tag.name;
+			tagsDiv.appendChild(text);
+		}
+	});
+	card.appendChild(tagsDiv);
 
-            return card;
+	return card;
+}
+
+/**
+ * 根据名称数组和链接数组，创建一个对象数组
+ * 如果某个索引位置没有对应的链接（数组为空或长度不足），则生成的对象只有 name 属性
+ * @param {Array} names - 名称列表
+ * @param {Array} hrefs - 链接列表（可选，默认为空数组）
+ * @returns {Array} 对象数组，每个对象至少包含 name 属性，有链接时再包含 href 属性
+ */
+function createDictList(names, hrefs = []) {
+    // 参数校验
+    if (!Array.isArray(names)) return [];
+
+    const result = [];
+    for (let i = 0; i < names.length; i++) {
+        const item = { name: names[i] };
+        // 只有当 hrefs 存在且当前索引位置有有效值（非 undefined）时才添加 href
+        if (Array.isArray(hrefs) && i < hrefs.length && hrefs[i] !== undefined) {
+            item.href = hrefs[i];
         }
+        result.push(item);
+    }
+    return result;
+}
+
+function toArrayIfString(data) {
+    if (Array.isArray(data)) {
+        return data;
+    }
+    if (typeof data === 'string') {
+        return [data];
+    }
+    // 可选：根据实际需求决定非字符串/非数组时的行为，这里返回空数组
+    return [];
+}
