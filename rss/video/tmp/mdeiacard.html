@@ -1,1 +1,142 @@
+这个实现是不是更好
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>动态媒体卡片生成器</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f4f9; padding: 20px; }
+        
+        /* 卡片容器样式 */
+        .media-card {
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 20px;
+            max-width: 500px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+            transition: transform 0.2s;
+        }
+        .media-card:hover { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
 
+        /* 时间样式 */
+        .time-info { color: #888; font-size: 0.85em; margin-bottom: 10px; display: block; }
+        .time-info time { font-weight: bold; color: #333; }
+
+        /* 演员样式 */
+        .actors-info { margin-bottom: 15px; font-size: 0.95em; }
+        .actor-link { color: #007BFF; text-decoration: none; margin-right: 8px; border-bottom: 1px dashed #007BFF; }
+        .actor-link:hover { color: #0056b3; border-bottom-style: solid; }
+        .actor-text { color: #555; margin-right: 8px; }
+
+        /* 标签样式 */
+        .tags-container { display: flex; flex-wrap: wrap; gap: 8px; }
+        .tag-item { font-size: 0.8em; padding: 4px 10px; border-radius: 4px; background: #f0f2f5; color: #444; text-decoration: none; transition: background 0.2s; }
+        .tag-item:hover { background: #e2e6ea; }
+        .tag-link { cursor: pointer; border: 1px solid #ddd; }
+        .tag-text { border: 1px solid transparent; }
+    </style>
+</head>
+<body>
+
+    <!-- 内容将通过 JS 插入到这里 -->
+    <div id="app"></div>
+
+    <script>
+        /**
+         * 创建媒体卡片的函数
+         * @param {Object} data - 包含时间、演员、标签的数据对象
+         */
+        function createMediaCard(data) {
+            // 1. 创建主容器
+            const card = document.createElement('div');
+            card.className = 'media-card';
+
+            // 2. 处理时间 (使用语义化 time 标签)
+            const timeSpan = document.createElement('span');
+            timeSpan.className = 'time-info';
+            timeSpan.innerHTML = `上映时间：<time datetime="${data.time}">${data.time}</time>`;
+            card.appendChild(timeSpan);
+
+            // 3. 处理演员 (核心逻辑：判断是否有 href)
+            const actorsDiv = document.createElement('div');
+            actorsDiv.className = 'actors-info';
+            
+            data.actors.forEach(actor => {
+                if (actor.href) {
+                    // 有链接：创建 <a> 标签
+                    const link = document.createElement('a');
+                    link.href = actor.href;
+                    link.className = 'actor-link';
+                    link.textContent = actor.name;
+                    link.target = '_blank'; // 可选：新窗口打开
+                    actorsDiv.appendChild(link);
+                } else {
+                    // 无链接：创建纯文本 span
+                    const text = document.createElement('span');
+                    text.className = 'actor-text';
+                    text.textContent = actor.name;
+                    actorsDiv.appendChild(text);
+                }
+            });
+            card.appendChild(actorsDiv);
+
+            // 4. 处理标签 (核心逻辑：判断是否有 href)
+            const tagsDiv = document.createElement('div');
+            tagsDiv.className = 'tags-container';
+
+            data.tags.forEach(tag => {
+                if (tag.href) {
+                    // 有链接：创建 <a> 标签
+                    const link = document.createElement('a');
+                    link.href = tag.href;
+                    link.className = 'tag-item tag-link';
+                    link.textContent = tag.name;
+                    tagsDiv.appendChild(link);
+                } else {
+                    // 无链接：创建纯文本 span
+                    const text = document.createElement('span');
+                    text.className = 'tag-item tag-text';
+                    text.textContent = tag.name;
+                    tagsDiv.appendChild(text);
+                }
+            });
+            card.appendChild(tagsDiv);
+
+            return card;
+        }
+
+        // --- 模拟数据 ---
+
+        // 场景 1: 混合数据 (有的有链接，有的没有)
+        const movieData = {
+            time: '2026-04-01 14:00',
+            actors: [
+                { name: '基努·里维斯', href: '/actor/keanu-reeves' }, // 有链接
+                { name: '凯瑞-安·莫斯' },                           // 无链接
+                { name: '劳伦斯·菲什伯恩', href: '/actor/laurence' } // 有链接
+            ],
+            tags: [
+                { name: '科幻', href: '/tag/sci-fi' },
+                { name: '动作' },
+                { name: '赛博朋克', href: '/tag/cyberpunk' }
+            ]
+        };
+
+        // 场景 2: 纯文本数据 (全部没有链接)
+        const simpleData = {
+            time: '2025-12-25',
+            actors: [ { name: '张三' }, { name: '李四' } ],
+            tags: [ { name: '喜剧' }, { name: '家庭' } ]
+        };
+
+        // --- 渲染 ---
+        const app = document.getElementById('app');
+        app.appendChild(createMediaCard(movieData));
+        app.appendChild(createMediaCard(simpleData));
+
+    </script>
+</body>
+</html>
