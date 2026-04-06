@@ -68,8 +68,8 @@ function videoHtml(config) {
         throw new TypeError(`< error: html 必须是 string 类型，当前值：${JSON.stringify(html)} >`);
     }
 
-	actor = createDictList(toArrayIfString(actor_list), toArrayIfString(actor_href_list));
-	tags = createDictList(toArrayIfString(tag_list), toArrayIfString(tag_href_list));
+	let actors = createDictList(toArrayIfString(actor_list), toArrayIfString(actor_href_list));
+	let tags = createDictList(toArrayIfString(tag_list), toArrayIfString(tag_href_list));
 
 	/*
 	let post_img = '';
@@ -252,7 +252,7 @@ function videoHtml(config) {
 
 	// --- 渲染 ---
 	const app = document.getElementById('app');
-	app.appendChild(createMediaCard(movieData));
+	//app.appendChild(createMediaCard(movieData));
       
 </script>
 
