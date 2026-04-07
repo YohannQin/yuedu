@@ -180,6 +180,13 @@ const new_actor_href_list= toArrayIfString(actor_href_list)
 	.related.active {
 		display: block;
 	}
+	.meta-row {
+		font-size: 12px;       /* 字体变小 */
+		color: #999;           /* 颜色变灰 */
+		margin-bottom: 4px;    /* 与下方时间行的间距 */
+		display: flex;         /* 使用 Flex 布局让内容对齐 */
+		gap: 15px;             /* 时长和观看数之间的间距 */
+    }
  
     ${style}
 
@@ -353,6 +360,27 @@ function toArrayIfString(data) {
         function createMediaCardStr(data) {
             let html = '<div class="media-card">';
 
+			if (data.duration || data.update_time) {
+				html += `<div class="meta-row">`;
+			
+				// 显示时间
+				if (data.update_time) {
+					html += `<span>时间：${data.update_time}</span>`;
+				}
+			
+				// 显示时长
+				if (data.duration) {
+					html += `<span>时长：${data.duration}</span>`;
+				}
+			
+				// 显示观看数
+				if (data.views) {
+					html += `<span>观看：${data.views}</span>`;
+			
+				}
+				html += '</div>';
+			}
+			
             // --- 1. 时间部分 ---
             if (data.time) {
                 const escapedTime = escapeHtml(data.time);
