@@ -487,3 +487,41 @@ function createMediaCardStr(data) {
 	html += `</div>`;
 	return html;
 }
+
+/**
+ * 解析 URL 中的查询参数，返回对象字典
+ * @param {string} url - 完整 URL 或仅查询字符串（如 "?a=1&b=2"）
+ * @returns {object} - 参数键值对对象，无参数时返回空对象 {}
+ */
+function parseQueryParams(url) {
+    var params = {};
+    // 提取 ? 后面的部分
+    var queryStart = url.indexOf('?');
+    if (queryStart === -1) {
+        return params; // 没有查询参数
+    }
+    var queryString = url.substring(queryStart + 1);
+    // 如果没有参数内容，返回空对象
+    if (queryString.length === 0) {
+        return params;
+    }
+    // 按 & 分割
+    var pairs = queryString.split('&');
+    for (var i = 0; i < pairs.length; i++) {
+        var pair = pairs[i];
+        if (pair.length === 0) continue;
+        var eqIndex = pair.indexOf('=');
+        var key, value;
+        if (eqIndex === -1) {
+            // 没有 = 的情况，key 存在，value 为 undefined 或空字符串（按需求）
+            key = decodeURIComponent(pair);
+            value = "";
+        } else {
+            key = decodeURIComponent(pair.substring(0, eqIndex));
+            value = decodeURIComponent(pair.substring(eqIndex + 1));
+        }
+        // 处理重复键：若需要保留多个值，可改为数组；此处简单覆盖为最后一个值
+        params[key] = value;
+    }
+    return params;
+}
