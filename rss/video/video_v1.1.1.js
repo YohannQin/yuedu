@@ -3,27 +3,38 @@
 let config = {
 	html: string					// 可选：当前网页html
 	
+	// video 相关
     title: string,      			// 必须：视频标题
+	post_img: string				// 可选：视频封面
+	video_url: string				// 必选：视频连接
+	video_sniffer: boolean			// 可选：是否使用默认的视频嗅探，待实现
+
+	// 标题下的辅助信息
+	update_time: string				// 可选：更新时间
+	duration: string				// 可选：视频时长
+	views: string					// 可选：观看数
+	likes: string					// 可选：喜欢数
+
+	// 视频相关信息
+    author: string					// 可选：作者名称
+	author_href: string				// 可选：作者连接
+    release_time: string			// 可选：发行时间
 	actor_list: string/Array,   	// 可选：演员信息
 	actor_href_ist: string/Array, 	// 可选：演员链接
-
 	tag_list: string/Array,   		// 可选：tag 信息
 	tag_href_ist: string/Array, 	// 可选：tag 链接
 
-	post_img: string			// 可选：视频封面
-	
-	video_url: string			// 可选：视频连接
-	video_sniffer: boolean		// 可选：是否使用默认的视频嗅探，待实现
+	// 简介信息
+	description: string				// 可选：简介
 
-	description: string			// 可选：简介
+	// 推荐页面
+	related_flag: boolean			// 可选：推荐页面
+	related_selector: string		// 可选：推荐页面选择器，示例 '.video-related@html'
 
-    host?: string,              // 可选：默认不填，用baseUrl解析相对路径链接，有误时手动填写
+    host?: string,              	// 可选：默认不填，用baseUrl解析相对路径链接，有误时手动填写
     
-	related_flag: boolean		// 可选：推荐页面
-	related_selector: string	// 可选：推荐页面选择器，示例 '.video-related@html'
-	
-	other_html: string			// 可选：自定义html标签，插入到页面顶部，例如：`<h1 style="text-align:center;">${java.getString('h1@text')}</h1>`
-	style: string				// 可选：自定义标签样式，插入到<style></style>里，或写在阅读预留位置
+	other_html: string				// 可选：自定义html标签，插入到页面顶部，例如：`<h1 style="text-align:center;">${java.getString('h1@text')}</h1>`
+	style: string					// 可选：自定义标签样式，插入到<style></style>里，或写在阅读预留位置
 }
 
 阅读调用示例，主题在登录界面调
@@ -50,21 +61,23 @@ function videoHtml(config) {
 		title = '',
         post_img = '',
         video_url = '',
-		release_time = '',
         
         update_time = '',
         duration = '',
         views = '',
         likes = '',
         
+		release_time = '',
         author = '',
         author_href = '',
 		actor_list = [],
 		actor_href_list = [],
 		tag_list = [],
 		tag_href_list = [],
-		video_sniffer = false,
+
 		description = '',
+
+		video_sniffer = false,
         host = String(this.baseUrl),
         related_flag = false,
 		related_selector = '',
@@ -75,15 +88,11 @@ function videoHtml(config) {
 	if (html && typeof html !== 'string') {
         throw new TypeError(`< error: html 必须是 string 类型，当前值：${JSON.stringify(html)} >`);
     }
-//this.java.log(JSON.stringify(actor_list))
-//this.java.log(JSON.stringify(actor_href_list))
-
-//this.java.log(JSON.stringify(toArrayIfString(actor_list)))
-//this.java.log(JSON.stringify(toArrayIfString(actor_href_list)))
-
-
-const new_actor_list = toArrayIfString(actor_list)
-const new_actor_href_list= toArrayIfString(actor_href_list)
+	//this.java.log(JSON.stringify(actor_list))
+	//this.java.log(JSON.stringify(actor_href_list))
+	
+	const new_actor_list = toArrayIfString(actor_list)
+	const new_actor_href_list= toArrayIfString(actor_href_list)
     
 	const actors = createDictList(new_actor_list, new_actor_href_list);
     //this.java.log(actors.length)
@@ -93,12 +102,14 @@ const new_actor_href_list= toArrayIfString(actor_href_list)
     //this.java.log(tags.length)
     
     let media_data = {
-        release_time: release_time,
-        
+       
         update_time: update_time,
         views: views,
         likes: likes,
-        
+
+        release_time: release_time,
+		author: author,
+        author_href: author_href,
         actors: actors,
         tags: tags,
     }
@@ -306,11 +317,8 @@ const new_actor_href_list= toArrayIfString(actor_href_list)
 </html>`
 
 }
-/*const movieData = {
-		time: '${time_str}',
-		actor: ${actors},
-		tags: ${tags},
-	}*/
+
+
 function getString(x, r) {
     return r == undefined ? String(this.java.getString(x)) : String(this.java.getString(x,r));
 }
@@ -356,114 +364,126 @@ function toArrayIfString(data) {
 }
 
 /**
-         * 简单的 HTML 转义函数，防止 XSS
-         */
-        function escapeHtml(str) {
-            if (!str) return '';
-            return str;
-            /*
-            return str
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
-                */
-        }
+ * 简单的 HTML 转义函数，防止 XSS
+ */
+function escapeHtml(str) {
+	if (!str) return '';
+	return str;
+	/*
+	return str
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+		*/
+}
 
-        /**
-         * 生成媒体卡片的 HTML 字符串（完全不使用 document 对象）
-         * @param {Object} data - 卡片数据
-         * @returns {string} HTML 字符串
-         */
-        function createMediaCardStr(data) {
-            let html = '<div class="media-card">';
+/**
+ * 生成媒体卡片的 HTML 字符串（完全不使用 document 对象）
+ * @param {Object} data - 卡片数据
+ * @returns {string} HTML 字符串
+ */
+function createMediaCardStr(data) {
+	let html = '<div class="media-card">';
 
-            if (data.duration || data.update_time) {
-				html += '<div class="meta-row">';
-			
-				// 显示时间
-				if (data.update_time) {
-					html += `<span>时间：${data.update_time}</span>`;
-				}
-			
-				// 显示时长
-				if (data.duration) {
-					html += `<span>时长：${data.duration}</span>`;
-				}
-			
-				// 显示观看数
-				if (data.views) {
-					html += `<span>观看：${data.views}</span>`;
-				}
-                // 显示喜欢数
-				if (data.likes) {
-					html += `<span>喜欢：${data.likes}</span>`;
-				}
-                
-				html += '</div>';
+	// --- 1. 辅助信息部分 ---
+	if (data.duration || data.update_time) {
+		html += '<div class="meta-row">';
+	
+		// 显示时间
+		if (data.update_time) {
+			html += `<span>时间：${data.update_time}</span>`;
+		}
+	
+		// 显示时长
+		if (data.duration) {
+			html += `<span>时长：${data.duration}</span>`;
+		}
+	
+		// 显示观看数
+		if (data.views) {
+			html += `<span>观看：${data.views}</span>`;
+		}
+		// 显示喜欢数
+		if (data.likes) {
+			html += `<span>喜欢：${data.likes}</span>`;
+		}
+		
+		html += '</div>';
+	}
+	
+	// --- 2. 时间部分 ---
+	if (data.release_time) {
+		const escapedTime = escapeHtml(data.release_time);
+		html += `
+			<div class="info-row">
+				<span class="label">发行：</span>
+				${escapedTime}
+			</div>
+		`;
+	}
+
+	// --- 3. 作者部分 ---
+	if (data.author) {
+		html += `<div class="info-row"><span class="label">作者：</span>`;
+		if (data.author_href) {
+			html += `<a href="${data.author_href)}" class="actor-link">${data.author}</a>`;
+		} else {
+			html += `<span>${data.author}</span>`;
+		}
+		html += `</div>`;
+	}
+
+	// --- 4. 演员部分 ---
+	if (Array.isArray(data.actors) && data.actors.length > 0) {
+		html += `<div class="info-row"><span class="label">演员：</span>`;
+		
+		data.actors.forEach((actor, index) => {
+			const nameEscaped = escapeHtml(actor.name);
+			if (actor.href) {
+				const hrefEscaped = escapeHtml(actor.href);
+				html += `<a href="${hrefEscaped}" class="actor-link">${nameEscaped}</a>`;
+			} else {
+				html += `<span>${nameEscaped}</span>`;
 			}
-            
-            // --- 1. 时间部分 ---
-            if (data.release_time) {
-                const escapedTime = escapeHtml(data.release_time);
-                html += `
-                    <div class="info-row">
-                        <span class="label">发行：</span>
-                        ${escapedTime}
-                    </div>
-                `;
-            }
+			if (index < data.actors.length - 1) {
+				html += ' / ';
+			}
+		});
+		html += `</div>`;
+	}
 
-            // --- 2. 演员部分 ---
-            if (Array.isArray(data.actors) && data.actors.length > 0) {
-                html += `<div class="info-row"><span class="label">演员：</span>`;
-                
-                data.actors.forEach((actor, index) => {
-                    const nameEscaped = escapeHtml(actor.name);
-                    if (actor.href) {
-                        const hrefEscaped = escapeHtml(actor.href);
-                        html += `<a href="${hrefEscaped}" class="actor-link">${nameEscaped}</a>`;
-                    } else {
-                        html += `<span>${nameEscaped}</span>`;
-                    }
-                    if (index < data.actors.length - 1) {
-                        html += ' / ';
-                    }
-                });
-                html += `</div>`;
-            }
+	// --- 5. 标签部分 ---
+	if (Array.isArray(data.tags) && data.tags.length > 0) {
+		html += `<div class="info-row"><span class="label">标签：</span>`;
+		
+		data.tags.forEach((tag, index) => {
+			const nameEscaped = escapeHtml(tag.name);
+			if (tag.href) {
+				const hrefEscaped = escapeHtml(tag.href);
+				html += `<a href="${hrefEscaped}" class="tag-link">${nameEscaped}</a>`;
+			} else {
+				html += `<span>${nameEscaped}</span>`;
+			}
+			if (index < data.tags.length - 1) {
+				html += ' ';
+			}
+		});
+		html += `</div>`;
+	}
 
-            // --- 3. 标签部分 ---
-            if (Array.isArray(data.tags) && data.tags.length > 0) {
-                html += `<div class="info-row"><span class="label">标签：</span>`;
-                
-                data.tags.forEach((tag, index) => {
-                    const nameEscaped = escapeHtml(tag.name);
-                    if (tag.href) {
-                        const hrefEscaped = escapeHtml(tag.href);
-                        html += `<a href="${hrefEscaped}" class="tag-link">${nameEscaped}</a>`;
-                    } else {
-                        html += `<span>${nameEscaped}</span>`;
-                    }
-                    if (index < data.tags.length - 1) {
-                        html += ' ';
-                    }
-                });
-                html += `</div>`;
-            }
+	// --- 6. 简介部分 ---
+	if (data.description) {
+		const descEscaped = escapeHtml(data.description);
+		html += `
+			<div class="description-box">
+				<h4>简介</h4>
+				<p class="description-text">${descEscaped}</p>
+			</div>
+		`;
+	}
 
-            // --- 4. 简介部分 ---
-            if (data.description) {
-                const descEscaped = escapeHtml(data.description);
-                html += `
-                    <div class="description-box">
-                        <h4>简介</h4>
-                        <p class="description-text">${descEscaped}</p>
-                    </div>
-                `;
-            }
-
-            html += `</div>`;
-            return html;
-        }
+	html += `</div>`;
+	return html;
+}
