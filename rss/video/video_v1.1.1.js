@@ -48,13 +48,21 @@ function videoHtml(config) {
     let {
 		html = '',
 		title = '',
-		time_str = '',
+        post_img = '',
+        video_url = '',
+		release_time = '',
+        
+        update_time = '',
+        duration = '',
+        views = '',
+        likes = '',
+        
+        author = '',
+        author_href = '',
 		actor_list = [],
 		actor_href_list = [],
 		tag_list = [],
 		tag_href_list = [],
-        post_img = '',
-        video_url = '',
 		video_sniffer = false,
 		description = '',
         host = String(this.baseUrl),
@@ -67,34 +75,37 @@ function videoHtml(config) {
 	if (html && typeof html !== 'string') {
         throw new TypeError(`< error: html 必须是 string 类型，当前值：${JSON.stringify(html)} >`);
     }
-this.java.log(JSON.stringify(actor_list))
-this.java.log(JSON.stringify(actor_href_list))
+//this.java.log(JSON.stringify(actor_list))
+//this.java.log(JSON.stringify(actor_href_list))
 
-this.java.log(JSON.stringify(toArrayIfString(actor_list)))
-this.java.log(JSON.stringify(toArrayIfString(actor_href_list)))
+//this.java.log(JSON.stringify(toArrayIfString(actor_list)))
+//this.java.log(JSON.stringify(toArrayIfString(actor_href_list)))
 
-
-this.java.log(toArrayIfString(actor_list).length)
-this.java.log(toArrayIfString(actor_href_list).length)
 
 const new_actor_list = toArrayIfString(actor_list)
 const new_actor_href_list= toArrayIfString(actor_href_list)
     
 	const actors = createDictList(new_actor_list, new_actor_href_list);
-    this.java.log(actors.length)
-    this.java.log(JSON.stringify(actors))
+    //this.java.log(actors.length)
+    //this.java.log(JSON.stringify(actors))
     
 	let tags = createDictList(toArrayIfString(tag_list), toArrayIfString(tag_href_list));
-    this.java.log(tags.length)
+    //this.java.log(tags.length)
     
     let media_data = {
-        time: time_str,
+        release_time: release_time,
+        
+        update_time: update_time,
+        views: views,
+        likes: likes,
+        
         actors: actors,
         tags: tags,
     }
     
-    this.java.log(Array.isArray(media_data.actors))
-    this.java.log(media_data.actors.length)
+    this.java.log(JSON.stringify(media_data))
+    //this.java.log(Array.isArray(media_data.actors))
+    //this.java.log(media_data.actors.length)
     
     let mdia_card_html = createMediaCardStr(media_data)
     //this.java.log(mdia_card_html)
@@ -180,10 +191,18 @@ const new_actor_href_list= toArrayIfString(actor_href_list)
 	.related.active {
 		display: block;
 	}
-	.meta-row {
+    #app {
+        padding-right: 5px;
+        padding-left: 5px;
+    }
+    #app h4 {
+        margin-top: 5px;
+        margin-bottom: 5px;
+    }
+    .meta-row {
 		font-size: 12px;       /* 字体变小 */
 		color: #999;           /* 颜色变灰 */
-		margin-bottom: 4px;    /* 与下方时间行的间距 */
+		margin-bottom: 5px;    /* 与下方时间行的间距 */
 		display: flex;         /* 使用 Flex 布局让内容对齐 */
 		gap: 15px;             /* 时长和观看数之间的间距 */
     }
@@ -360,8 +379,8 @@ function toArrayIfString(data) {
         function createMediaCardStr(data) {
             let html = '<div class="media-card">';
 
-			if (data.duration || data.update_time) {
-				html += `<div class="meta-row">`;
+            if (data.duration || data.update_time) {
+				html += '<div class="meta-row">';
 			
 				// 显示时间
 				if (data.update_time) {
@@ -376,17 +395,21 @@ function toArrayIfString(data) {
 				// 显示观看数
 				if (data.views) {
 					html += `<span>观看：${data.views}</span>`;
-			
 				}
+                // 显示喜欢数
+				if (data.likes) {
+					html += `<span>喜欢：${data.likes}</span>`;
+				}
+                
 				html += '</div>';
 			}
-			
+            
             // --- 1. 时间部分 ---
-            if (data.time) {
-                const escapedTime = escapeHtml(data.time);
+            if (data.release_time) {
+                const escapedTime = escapeHtml(data.release_time);
                 html += `
                     <div class="info-row">
-                        <span class="label">时间：</span>
+                        <span class="label">发行：</span>
                         ${escapedTime}
                     </div>
                 `;
