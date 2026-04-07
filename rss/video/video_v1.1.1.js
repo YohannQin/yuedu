@@ -428,7 +428,7 @@ function createMediaCardStr(data) {
 	if (data.author) {
 		html += `<div class="info-row"><span class="label">作者：</span>`;
 		if (data.author_href) {
-			html += `<a href="${data.author_href)}" class="actor-link">${data.author}</a>`;
+			html += `<a href="${data.author_href}" class="actor-link">${data.author}</a>`;
 		} else {
 			html += `<span>${data.author}</span>`;
 		}
