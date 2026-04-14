@@ -104,6 +104,7 @@ function videoHtml(config) {
     let media_data = {
        
         update_time: update_time,
+		duration: duration,
         views: views,
         likes: likes,
 
@@ -112,6 +113,8 @@ function videoHtml(config) {
         author_href: author_href,
         actors: actors,
         tags: tags,
+
+		description: description,
     }
     
     this.java.log(JSON.stringify(media_data))
