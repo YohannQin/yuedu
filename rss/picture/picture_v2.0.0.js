@@ -66,6 +66,21 @@ function pictureHtml(config) {
             pointer-events: none; /* 让点击穿透 */
             backdrop-filter: blur(4px);
         }
+        
+        /* 新增：放大 Viewer 按钮 */
+    .viewer-prev,
+    .viewer-next {
+        width: 60px !important;
+        height: 60px !important;
+        background: rgba(0,0,0,0.6) !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        margin: 0 20px !important;
+    }
+    
+ 
     </style>
 </head>
 <body>
@@ -91,7 +106,7 @@ var img_url_handle = ${image_handle_func}
         // --- A. 定义数据源 (模拟后台返回的数据) ---
         
         var image_list = ${JSON.stringify(image_list)};
-       alert(image_list);
+       //alert(image_list);
  	  var image_total = ${image_count};
        var next_page_url = '${second_page_url}';
        var baseUrl = '${base_url}';
@@ -156,8 +171,8 @@ var img_url_handle = ${image_handle_func}
 							// 计算当前图片是第几张
 							const index = parseInt(entry.target.dataset.index);
 							currentNumEl.innerText = index;
-							java.log(curr_pic_count - index );
-                            java.log(next_page_url)
+							//java.log(curr_pic_count - index );
+                            //java.log(next_page_url)
                             if (curr_pic_count - index < 10) {
 								fetch_next_page_image(next_page_url);
 							}
@@ -246,10 +261,10 @@ function getStringList(rule, context) {
             //alert(doc.body.outerHTML)
             
             const nextUrl = getString('${page_next_selector}', doc);
-            java.log(nextUrl)
+            java.log('获取下页链接：' + nextUrl)
             
             const images = [...getStringList('${img_selector}', doc)];
-            //java.log(images)
+            java.log('获取图片数量：' + images.length)
 
             return { images, nextUrl };
             } catch(error) {
@@ -263,7 +278,7 @@ function getStringList(rule, context) {
 			if (!html_string)
 				return 1;
 
-                java.log(html_string);
+                //java.log(html_string);
 			let {images, nextUrl} = await parsePage(html_string, '');
             
             if (nextUrl)
@@ -283,7 +298,7 @@ function getStringList(rule, context) {
         function fetch_next_page_image(page_url) {
 			if (is_loading)
 				return;
-                java.log(page_url)
+                
                 fetch_next_handle(page_url)
                 .then( data => {
                     if (!data)
@@ -302,10 +317,14 @@ function getStringList(rule, context) {
         // 初始化 Viewer (全屏查看功能) ---
         // 注意：因为 DOM 是动态生成的，所以必须在 renderGallery() 之后初始化
         const viewer = new Viewer(gallery, {
+            initialViewMode: 1,
             toggleDraggableRate: 0.1,
             navbar: false,
             title: false,
-            toolbar: true,
+            toolbar: {
+        prev: { size: 'large' },   // 上一张按钮大号
+        next: { size: 'large' },   // 下一张按钮大号
+        },
             // 当打开查看器时，同步一下页码（可选）
             show: function(event) {
                 currentNumEl.innerText = event.detail.index + 1;
