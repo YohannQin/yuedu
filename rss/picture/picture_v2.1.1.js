@@ -205,7 +205,7 @@ function pictureHtml(config) {
 
 		var curr_pic_count = 0;
 		var last_pic_idx = 0;
-        vat total_last_pic_idx = 0;
+        var total_last_pic_idx = 0;
 		var fetch_page_idx = 1;
         var last_page_idx = 1;
         
@@ -549,6 +549,14 @@ function getStringList(rule, context) {
 		}
 		
 		let isInputProcessing = false; // 定义锁
+        pageInputEl.addEventListener('click', function() {
+            // 将光标设置到文本末尾
+            try{
+            this.setSelectionRange(this.value.length, this.value.length);
+            } catch(error) {
+                //alert(error);
+            }
+  });
         pageInputEl.addEventListener('keydown', function(e) {
             // 1. 阻止事件冒泡
             e.stopPropagation();
@@ -577,6 +585,7 @@ function getStringList(rule, context) {
 				fetch_page_image(targetPage, page_url, page_input_target_jump)				
             }
         });
+        
         		
     </script>
 </body>
