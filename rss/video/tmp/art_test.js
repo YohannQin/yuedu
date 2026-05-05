@@ -50,3 +50,35 @@ art.on('control', (state) => {
 
 	}
 });
+
+
+
+Artplayer.PLAYBACK_RATE = [0.5, 1, 1.25, 1.5, 2, 3, 5];
+
+function getI18n(value) {
+    return value === 1.0 ? art.i18n.get('Normal') : (value.toFixed(1) + 'X')
+  }
+
+ art.controls.add({
+    name: 'playback-rate',
+	position: 'right',
+    html: '倍率',
+    tooltip: '',
+    icon: art.icons.playbackRate,
+    selector: Artplayer.PLAYBACK_RATE.map((item) => {
+      return {
+        value: item,
+        name: `playback-rate-${item}`,
+        default: item === art.playbackRate,
+        html: getI18n(item),
+      }
+    }),
+    onSelect(item) {
+    	art.playbackRate = item.value
+    	return item.html
+    },
+    mounted: () => {
+		art.on('video:ratechange', () => {})
+    },
+  });
+
