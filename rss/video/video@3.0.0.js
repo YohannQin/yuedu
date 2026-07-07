@@ -8,6 +8,8 @@ let config = {
 	post_img: string				// 可选：视频封面
 	video_url: string				// 必选：视频连接
 	video_sniffer: boolean			// 可选：是否使用默认的视频嗅探，待实现
+    use_hls: boolean               //是否使用hls插件
+    hls_quality: boolean          //是否使用hls画质
 
 	// 标题下的辅助信息
 	update_time: string				// 可选：更新时间
@@ -63,6 +65,9 @@ function videoHtml(config) {
         video_url = '',
         curr_href = '',
         
+        use_hls = false,
+        hls_quality = false,
+        
         update_time = '',
         duration = '',
         views = '',
@@ -86,9 +91,6 @@ function videoHtml(config) {
         other_html = '',
         style = '',
         
-        use_hls = false,
-        hls_quality = false,
-        debug_enable = true,
         log_level = 'debug'
         
     } = config;
@@ -108,17 +110,14 @@ function videoHtml(config) {
         video_url = ''
     }
     
-	//trace(JSON.stringify(actor_list))
-    //trace(JSON.stringify(actor_href_list))
-	
 	const new_actor_list = toArrayIfString(actor_list)
 	const new_actor_href_list= toArrayIfString(actor_href_list)
     
 	const actors = createDictList(new_actor_list, new_actor_href_list);
-    //trace('演员', JSON.stringify(actors))
+    trace.call(this, '演员', JSON.stringify(actors))
     
 	let tags = createDictList(toArrayIfString(tag_list), toArrayIfString(tag_href_list));
-    //trace('标签', JSON.stringify(actors))
+    trace.call(this, '标签', JSON.stringify(actors))
     
     let media_data = {
        
@@ -134,24 +133,10 @@ function videoHtml(config) {
         tags: tags,
     }
     
-    //trace(JSON.stringify(media_data))
+    trace.call(this, JSON.stringify(media_data))
     
     let mdia_card_html = createMediaCardStr(media_data)
-    //trace(mdia_card_html)
-    	
-
-	/*
-	let post_img = '';
-	let related_flag = true;
-	let title = getString('.title.0@text');
-
-	const match = result.match(/"url":"(https:[^"]+\.m3u8)"/);
-	if (match) {
-		var video_url = match[1].replace(/\\\//g, '/');
-	} else {
-		var video_url = ""
-	}
-	*/
+    trace.call(this, mdia_card_html)
 	
 	if (video_sniffer) {
 		const match = result.match(/"url":"(https:[^"]+\.m3u8)"/);
@@ -187,8 +172,10 @@ function videoHtml(config) {
 
         <script src="https://artplayer.org/uncompiled/artplayer-plugin-hls-control/index.js"></script>
 
+        <!-- 
         <link rel="stylesheet" href="https://jav.sb/videojs/video-js.css">
         <script src="https://jav.sb/videojs/video.min.js"></script>
+         -->
 
     </head>
 
@@ -342,20 +329,6 @@ function error(...args) {
             trace('player脚本开始执行')
 
             window.local = true;
-            var debug_enable = true
-            
-function debug(...args) {
-	if (!debug_enable)
-		return
-    // 将参数转为字符串并用空格连接
-    const text = args.map(arg => 
-        typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-    ).join(', ');
-    
-	java.log(text)
-}     
-
-            
             
             var temp_video_data = JSON.parse('${video_data}')
             if (Object.keys(temp_video_data).length != 0) {
@@ -363,7 +336,7 @@ function debug(...args) {
             } else {
                 var video_data = "${video_url}"
             }
-            java.log('aaaa33')
+            
             var base_video_url = ''
             var quality = []
             var use_hls = ${use_hls}
@@ -515,7 +488,7 @@ function debug(...args) {
                     html: '<img style="width: 40px" src="https://cdn-icons-png.magnific.com/512/17875/17875552.png?fd=1&filename=forward_17875552.png">',
                     style: {
                         position: 'absolute',
-                        top: '40%',
+                        top: '60%',
                         right: '10px',
                         opacity: '.9',
                         transform: 'translateY(-50%)',
@@ -537,7 +510,7 @@ function debug(...args) {
                     html: '<img style="width: 40px" src="https://cdn-icons-png.magnific.com/512/17875/17875213.png?fd=1&filename=back_17875213.png">',
                     style: {
                         position: 'absolute',
-                        top: '60%',
+                        top: '40%',
                         right: '10px',
                         opacity: '.9',
                         transform: 'translateY(-50%)',
@@ -603,7 +576,8 @@ function debug(...args) {
 
             function art_event_init(art) {
                 art.on('ready', () => {
-                    java.log(art.hls.levels.length)
+                    if  (use_hls)
+                        trace('hls视频数', art.hls.levels.length)
                     // if (art.hls.levels.length == 0)
                     //     art.controls.remove('hls-quality')
 
@@ -920,12 +894,12 @@ function formatArgs(args) {
 
 function trace(...args) {
         if (LEVELS[LOG_LEVEL] > LEVELS.trace) return;
-        this.java.log('[TRACE] ' + formatArgs(args));
+        this.java.log('\n[TRACE] ' + formatArgs(args));
 }
 
 function debug(...args) {
         if (LEVELS[LOG_LEVEL] > LEVELS.debug) return;
-        this.java.log('[DEBUG] ' + formatArgs(args));
+        this.java.log('\n[DEBUG] ' + formatArgs(args));
  }
 
 function info(...args) {
