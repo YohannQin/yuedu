@@ -82,3 +82,56 @@ function getI18n(value) {
     },
   });
 
+
+function switch_server_line(art, name, data)
+{
+	art.switchUrl(data.videos[0].url)
+	art.quality = quality_array_create(name, data.videos)
+	info('线路切换至：', name, data.videos[0].url)
+	art.current_server = name
+}
+
+
+function server_line_init(art) {
+	
+	if (Object.keys(server_data).length == 0)
+		return
+
+	art.controls.add({
+		name: 'server-line',
+		position: 'right',
+		html: '线路',
+		tooltip: '',
+		selector: Object.entries(server_data).map(([key, value], index) => {
+			return {
+				value: key,
+				index:index
+				default: index === 0,
+				html: key,
+			}
+		}),
+		onSelect(item) {
+			switch_server_line(art, item.value, server_data[item.value])
+			art.current_index = item.index;
+			return item.html
+		},
+		mounted: () => {
+			art.on('video:ratechange', () => {})
+		},
+	});	
+	
+	art.current_index = 0;
+	
+	art.on('error', (error, reconnectTime) => {
+		error('播放失败', art.current_server, error, reconnectTime);
+		
+		let entries = Object.entries(server_data)
+		
+		art.current_index += 1
+		if (art.current_index >= entries.length)
+			return;
+		entries = entries[art.current_index]
+		switch_server_line(art, entries.key, entries.value)
+	});
+}
+
