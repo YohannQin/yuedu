@@ -356,7 +356,6 @@ function error(...args) {
 
                 if (video_arr.length <= 1)
                     return result;
-                java.log('dgggg')
 
                 result = video_arr.map((item, index) => {
                     const newItem = {
@@ -377,11 +376,9 @@ function error(...args) {
                 let result = []
                 if (Object.prototype.toString.call(data) !== '[object Object]') 
                     return result
-                java.log('eeeee')
 
                 if (Object.keys(data).length == 0)
                     return result
-                java.log('fffff')
 
                 const first = Object.keys(data)[0];
                 return quality_array_create(first, data[first].videos)
