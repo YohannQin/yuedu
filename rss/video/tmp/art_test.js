@@ -83,15 +83,23 @@ function getI18n(value) {
   });
 
 
+
+
+
+
 function switch_server_line(art, name, data)
 {
-	art.switchUrl(data.videos[0].url)
-	art.quality = quality_array_create(name, data.videos)
-	info('线路切换至：', name, data.videos[0].url)
+	console.info('select ', name, data,  data.videos[0])
+	art.reset()
+	
+	video = data.videos[0]
+	art.url = video.url
+	//art.quality = quality_array_create(name, data.videos)
+	console.info('线路切换至：', name, data.videos[0].url)
 	art.current_server = name
+	art.notice.show = name
 }
-
-
+Artplayer.RECONNECT_TIME_MAX = 3
 function server_line_init(art) {
 	
 	if (Object.keys(server_data).length == 0)
@@ -105,12 +113,14 @@ function server_line_init(art) {
 		selector: Object.entries(server_data).map(([key, value], index) => {
 			return {
 				value: key,
-				index:index
+				index:index,
 				default: index === 0,
 				html: key,
 			}
 		}),
 		onSelect(item) {
+			console.info('select ', item)
+			console.info('select ', item.value)
 			switch_server_line(art, item.value, server_data[item.value])
 			art.current_index = item.index;
 			return item.html
@@ -121,17 +131,22 @@ function server_line_init(art) {
 	});	
 	
 	art.current_index = 0;
-	
+	/*
 	art.on('error', (error, reconnectTime) => {
-		error('播放失败', art.current_server, error, reconnectTime);
+		console.info(reconnectTime);
+		console.info('播放失败', art.current_index, art.current_server);
+		if (reconnectTime < Artplayer.RECONNECT_TIME_MAX)
+			return
 		
 		let entries = Object.entries(server_data)
-		
+
 		art.current_index += 1
 		if (art.current_index >= entries.length)
 			return;
 		entries = entries[art.current_index]
-		switch_server_line(art, entries.key, entries.value)
-	});
-}
+		console.info('选择项 ', entries[0], entries[1])
 
+		switch_server_line(art, entries[0], entries[1])
+	});
+	*/
+}
