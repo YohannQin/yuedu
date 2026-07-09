@@ -136,9 +136,9 @@ function videoHtml(config) {
     trace.call(this, JSON.stringify(media_data))
     
     let subtitle_html = createSubTitleStr(media_data)
-    let mdeia_card_html = createMediaCardStr(media_data)
-	let description_html = createSubTitleStr(media_data)
-    trace.call(this, '影片信息', subtitle_html, mdia_card_html, description_html)
+    let media_card_html = createMediaCardStr(media_data)
+	let description_html = createDescriptionStr(media_data)
+    trace.call(this, '影片信息', subtitle_html, media_card_html, description_html)
 	
 	if (video_sniffer) {
 		const match = result.match(/"url":"(https:[^"]+\.m3u8)"/);
@@ -271,7 +271,7 @@ function videoHtml(config) {
            <div class="subtitle">${subtitle_html}<div>
 			<div class="media-info">
 				${info_html}
-				${mdiea_card_html}
+				${media_card_html}
 			<div>
 			<div class="description"> ${description_html} <div>
 			
