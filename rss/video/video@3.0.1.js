@@ -135,8 +135,10 @@ function videoHtml(config) {
     
     trace.call(this, JSON.stringify(media_data))
     
-    let mdia_card_html = createMediaCardStr(media_data)
-    trace.call(this, mdia_card_html)
+    let subtitle_html = createSubTitleStr(media_data)
+    let mdeia_card_html = createMediaCardStr(media_data)
+	let description_html = createSubTitleStr(media_data)
+    trace.call(this, '影片信息', subtitle_html, mdia_card_html, description_html)
 	
 	if (video_sniffer) {
 		const match = result.match(/"url":"(https:[^"]+\.m3u8)"/);
@@ -266,11 +268,14 @@ function videoHtml(config) {
         <div id="app">
             <!-- 标题 -->
             <h4>${title}</h4> 
-            ${info_html}
-            ${mdia_card_html}
-
+           <div class="subtitle">${subtitle_html}<div>
+			<div class="media-info">
+				${info_html}
+				${mdiea_card_html}
+			<div>
+			<div class="description"> ${description_html} <div>
+			
             ${other_html}
-
             <!-- 推荐主题页面 -->
             ${related_html}
         </div>
@@ -746,32 +751,6 @@ function escapeHtml(str) {
  */
 function createMediaCardStr(data) {
 	let html = '<div class="media-card">';
-
-	// --- 1. 辅助信息部分 ---
-	if (data.duration || data.update_time || data.views) {
-		html += '<div class="meta-row">';
-	
-		// 显示时间
-		if (data.update_time) {
-			html += `<span>时间：${data.update_time}</span>`;
-		}
-	
-		// 显示时长
-		if (data.duration) {
-			html += `<span>时长：${data.duration}</span>`;
-		}
-	
-		// 显示观看数
-		if (data.views) {
-			html += `<span>观看：${data.views}</span>`;
-		}
-		// 显示喜欢数
-		if (data.likes) {
-			html += `<span>喜欢：${data.likes}</span>`;
-		}
-		
-		html += '</div>';
-	}
 	
 	// --- 2. 时间部分 ---
 	if (data.release_time) {
@@ -833,7 +812,45 @@ function createMediaCardStr(data) {
 		html += `</div>`;
 	}
 
-	// --- 6. 简介部分 ---
+	html += `</div>`;
+	return html;
+}
+
+function createSubTitleStr(data) {
+	let html = '';
+	// --- 1. 辅助信息部分 ---
+	if (data.duration || data.update_time || data.views) {
+		html += '<div class="meta-row">';
+	
+		// 显示时间
+		if (data.update_time) {
+			html += `<span>时间：${data.update_time}</span>`;
+		}
+	
+		// 显示时长
+		if (data.duration) {
+			html += `<span>时长：${data.duration}</span>`;
+		}
+	
+		// 显示观看数
+		if (data.views) {
+			html += `<span>观看：${data.views}</span>`;
+		}
+		// 显示喜欢数
+		if (data.likes) {
+			html += `<span>喜欢：${data.likes}</span>`;
+		}
+		
+		html += '</div>';
+	}
+	
+	return html
+}
+
+function createDescriptionStr(data) {
+	let html = '';
+	
+	// --- 简介部分 ---
 	if (data.description && data.description.length() > 10) {
 		const descEscaped = escapeHtml(data.description);
 		html += `
@@ -843,8 +860,7 @@ function createMediaCardStr(data) {
 			</div>
 		`;
 	}
-
-	html += `</div>`;
+	
 	return html;
 }
 
