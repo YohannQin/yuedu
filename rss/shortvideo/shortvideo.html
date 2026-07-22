@@ -1305,6 +1305,9 @@ function mergeKeepKeys(base, updates) {
               vid.play().catch(() => {});
             }
           }
+          if (isInitial) {
+            preloadNextVideos(swiper)
+          } 
         } else {
           initSwiper();
           if (window.mySwiper && window.mySwiper.slides.length > 0) {
