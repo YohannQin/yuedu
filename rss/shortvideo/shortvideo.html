@@ -1,0 +1,1693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>短视频 · 分类切换 · 动态更新钩子（完整注释）</title>
+  <!-- Swiper CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+  <!-- hls.js -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@0.14.17/dist/hls.min.js"></script>
+  <style>
+    /* ===== 基础样式 ===== */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000; color: #fff; font-family: system-ui, sans-serif; overflow: hidden; height: 100vh; width: 100vw; user-select: none; }
+    .swiper { width: 100%; height: 100vh; height: 100dvh; }
+    .swiper-slide { position: relative; background: #0a0a0a; overflow: hidden; }
+    .video-container { width: 100%; height: 100%; position: relative; display: flex; align-items: center; justify-content: center; background: #000; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .video-container video { width: 100%; height: 100%; object-fit: contain; display: block; background: #000; -webkit-tap-highlight-color: transparent; }
+
+    /* 播放/暂停提示图标 */
+    .play-toggle-hint {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 25;
+      pointer-events: none;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(4px);
+      border-radius: 50%;
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+    }
+    .play-toggle-hint.show { opacity: 1; }
+    .play-toggle-hint svg { width: 40px; height: 40px; fill: #fff; margin-left: 4px; }
+
+    /* 进度条时间提示（拖动时显示） */
+    .progress-time {
+      position: absolute;
+      bottom: calc(100% + 40px);
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 18px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 25;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .progress-time.show { opacity: 1; }
+
+    /* 拖动时隐藏文字信息 */
+    .top-info.hidden, .actions.hidden { display: none !important; }
+
+    .slide-overlay { position: absolute; inset: 0; pointer-events: none; }
+    .slide-overlay > * { pointer-events: auto; }
+    /* 左下角信息 */
+    .top-info { position: absolute; left: 20px; bottom: 40px; z-index: 10; max-width: 70%; text-shadow: 0 2px 8px rgba(0,0,0,0.8); pointer-events: none; display: flex; flex-direction: column; gap: 4px; }
+    .top-info .author { font-size: 18px; font-weight: 700; color: #fff; }
+    .top-info .title { font-size: 18px; font-weight: 400; line-height: 1.3; color: #fff; }
+    .top-info .tags { font-size: 14px; color: #ffcc00; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+    .top-info .tags span { background: rgba(0,0,0,0.4); padding: 2px 10px; border-radius: 12px; backdrop-filter: blur(2px); }
+    .top-info .time { font-size: 13px; color: #aaa; letter-spacing: 0.3px; margin-top: 2px; }
+
+    /* 右侧操作按钮组 */
+    .actions {
+      position: absolute;
+      right: 12px;
+      bottom: 100px;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      pointer-events: none;
+    }
+    .actions > * { pointer-events: auto; }
+    .actions button {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.6);
+      outline: none;
+      padding: 0;
+    }
+    .actions button:active { transform: scale(0.85); }
+    .actions .icon {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+    }
+    .actions .icon svg {
+      width: 28px;
+      height: 28px;
+      fill: none;
+      stroke: #fff;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .actions .count {
+      font-size: 12px;
+      font-weight: 500;
+      background: rgba(0,0,0,0.3);
+      padding: 0 6px;
+      border-radius: 10px;
+      backdrop-filter: blur(2px);
+      min-width: 18px;
+      text-align: center;
+      color: #fff;
+    }
+    .btn-like.active .icon svg { fill: #ff2d55; stroke: #ff2d55; }
+    .btn-fav.active .icon svg { fill: #ffcc00; stroke: #ffcc00; }
+    .action-avatar .avatar-link {
+      display: block;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid #fff;
+    }
+    .action-avatar .avatar-link img { width: 100%; height: 100%; object-fit: cover; }
+
+    /* 进度条 */
+    .progress-bar {
+      position: absolute;
+      bottom: 15px;
+      left: 0;
+      width: 100%;
+      height: 30px;
+      background: transparent;
+      z-index: 20;
+      cursor: pointer;
+      pointer-events: auto;
+      touch-action: none;
+    }
+    .progress-bar .progress-track {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      width: 100%;
+      height: 6px;
+      background: rgba(255,255,255,0.25);
+      border-radius: 3px;
+      transition: height 0.15s ease;
+    }
+    .progress-bar .progress-played {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      height: 6px;
+      width: 0%;
+      background: #ff2d55;
+      border-radius: 3px;
+      transition: width 0.1s linear, height 0.15s ease;
+    }
+    .progress-bar.dragging .progress-track { height: 12px; }
+    .progress-bar.dragging .progress-played { height: 12px; }
+    .progress-bar .progress-handle {
+      position: absolute;
+      right: -8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(255,45,85,0.6);
+      opacity: 0;
+      transition: opacity 0.2s, width 0.15s, height 0.15s;
+      pointer-events: auto;
+      cursor: grab;
+    }
+    .progress-bar:hover .progress-handle,
+    .progress-bar.dragging .progress-handle { opacity: 1; }
+    .progress-bar.dragging .progress-handle { width: 22px; height: 22px; right: -11px; }
+    .progress-bar .progress-handle:active { cursor: grabbing; }
+
+    /* 评论面板 */
+    .comment-panel {
+      position: fixed;
+      top: 0;
+      right: -380px;
+      width: 380px;
+      max-width: 85vw;
+      height: 100%;
+      background: #1a1a1a;
+      box-shadow: -4px 0 20px rgba(0,0,0,0.7);
+      z-index: 1000;
+      transition: right 0.3s cubic-bezier(0.23,1,0.32,1);
+      display: flex;
+      flex-direction: column;
+      color: #eee;
+    }
+    .comment-panel.open { right: 0; }
+    .comment-panel .panel-header { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px; border-bottom: 1px solid #333; background: #222; }
+    .comment-panel .panel-header h3 { font-size: 18px; font-weight: 600; }
+    .comment-panel .panel-header .close-btn { background: none; border: none; color: #aaa; font-size: 28px; cursor: pointer; padding: 0 8px; }
+    .comment-panel .comment-list { flex: 1; overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .comment-panel .comment-item { display: flex; gap: 12px; align-items: flex-start; border-bottom: 1px solid #2a2a2a; padding-bottom: 12px; }
+    .comment-panel .comment-item .avatar { width: 36px; height: 36px; border-radius: 50%; background: #444; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; color: #fff; font-size: 14px; }
+    .comment-panel .comment-item .content { flex: 1; }
+    .comment-panel .comment-item .content .user { font-weight: 600; font-size: 14px; color: #ccc; }
+    .comment-panel .comment-item .content .text { font-size: 15px; margin-top: 2px; word-break: break-word; }
+    .comment-panel .comment-input { display: flex; gap: 10px; padding: 14px 20px; background: #222; border-top: 1px solid #333; }
+    .comment-panel .comment-input input { flex: 1; padding: 10px 14px; border-radius: 24px; border: 1px solid #444; background: #2a2a2a; color: #eee; font-size: 15px; outline: none; transition: border 0.2s; }
+    .comment-panel .comment-input input:focus { border-color: #ff2d55; }
+    .comment-panel .comment-input button { background: #ff2d55; border: none; color: #fff; padding: 0 20px; border-radius: 24px; font-weight: 600; cursor: pointer; font-size: 15px; transition: background 0.2s; }
+    .comment-panel .comment-input button:hover { background: #e61e46; }
+    .panel-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 999; display: none; backdrop-filter: blur(2px); }
+    .panel-overlay.active { display: block; }
+
+    /* 加载更多指示器 */
+    .loading-more { position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 30; background: rgba(0,0,0,0.6); padding: 6px 16px; border-radius: 20px; font-size: 13px; color: #ccc; backdrop-filter: blur(4px); display: none; }
+    .loading-more.show { display: block; }
+
+    /* 全局加载遮罩 */
+    #global-loader {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      color: #fff;
+    }
+    #global-loader .spinner {
+      width: 50px;
+      height: 50px;
+      border: 5px solid rgba(255,255,255,0.2);
+      border-top-color: #ff2d55;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    #global-loader p { margin-top: 20px; font-size: 18px; letter-spacing: 0.5px; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ===== 分类下拉菜单样式 ===== */
+    .category-bar {
+      position: fixed;
+      top: 16px;
+      left: 12px;
+      z-index: 100;
+      pointer-events: auto;
+    }
+    .category-btn {
+      background: rgba(255,255,255,0.15);
+      backdrop-filter: blur(10px);
+      border: none;
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: background 0.2s;
+      pointer-events: auto;
+      touch-action: manipulation;
+    }
+    .category-btn:active { background: rgba(255,255,255,0.25); }
+    .category-btn svg { width: 16px; height: 16px; fill: #fff; }
+    .category-btn .arrow { width: 12px; height: 12px; fill: #fff; transition: transform 0.3s; }
+    .category-btn .arrow.open { transform: rotate(180deg); }
+
+    .category-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 8px);
+      left: 0;
+      background: rgba(30,30,30,0.95);
+      backdrop-filter: blur(10px);
+      border-radius: 12px;
+      padding: 16px;
+      min-width: 200px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+      border: 1px solid rgba(255,255,255,0.08);
+      pointer-events: auto;
+    }
+    .category-dropdown.open { display: block; }
+
+    .category-list {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+    .category-item {
+      background: #2a2a2a;
+      border: 2px solid transparent;
+      border-radius: 10px;
+      padding: 12px 8px;
+      text-align: center;
+      color: #fff;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-weight: 500;
+      pointer-events: auto;
+      touch-action: manipulation;
+    }
+    .category-item:active { transform: scale(0.95); }
+    .category-item.active {
+      border-color: #fe2c55;
+      background: rgba(254,44,85,0.2);
+    }
+    .category-item:hover { background: #3a3a3a; }
+
+    /* 移动端适配 */
+    @media (max-width: 480px) {
+      .top-info { left: 14px; bottom: 40px; }
+      .top-info .author, .top-info .title { font-size: 16px; }
+      .top-info .tags { font-size: 12px; }
+      .top-info .time { font-size: 11px; }
+      .actions { right: 8px; bottom: 80px; gap: 12px; }
+      .actions .icon { width: 26px; height: 26px; }
+      .actions .icon svg { width: 22px; height: 22px; }
+      .actions .count { font-size: 10px; min-width: 14px; }
+      .action-avatar .avatar-link { width: 38px; height: 38px; }
+      .comment-panel { max-width: 100vw; right: -100vw; width: 100vw; }
+      .comment-panel.open { right: 0; }
+      .play-toggle-hint { width: 60px; height: 60px; }
+      .play-toggle-hint svg { width: 30px; height: 30px; }
+      .progress-time { font-size: 16px; bottom: calc(100% + 30px); padding: 4px 12px; }
+      .category-dropdown { min-width: 160px; padding: 12px; }
+      .category-list { gap: 6px; }
+      .category-item { padding: 8px 4px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ===== 分类栏 ===== -->
+  <div class="category-bar">
+    <button class="category-btn" id="categoryBtn">
+      <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+      <span class="category-label" id="categoryLabel">推荐</span>
+      <svg class="arrow" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>
+    </button>
+    <div class="category-dropdown" id="categoryDropdown">
+      <div class="category-list" id="categoryList"></div>
+    </div>
+  </div>
+
+  <!-- ===== Swiper 容器 ===== -->
+  <div class="swiper">
+    <div class="swiper-wrapper"></div>
+    <div class="loading-more" id="loadingMore">加载更多...</div>
+  </div>
+
+  <!-- 全局加载遮罩 -->
+  <div id="global-loader">
+    <div class="spinner"></div>
+    <p>加载中...</p>
+  </div>
+
+  <!-- ===== 评论面板 ===== -->
+  <div class="panel-overlay" id="panelOverlay"></div>
+  <div class="comment-panel" id="commentPanel">
+    <div class="panel-header">
+      <h3>评论 <span id="commentCount">(0)</span></h3>
+      <button class="close-btn" id="closePanelBtn">✕</button>
+    </div>
+    <div class="comment-list" id="commentList"></div>
+    <div class="comment-input">
+      <input type="text" id="commentInput" placeholder="说点什么..." maxlength="200" />
+      <button id="sendCommentBtn">发送</button>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- 依赖库 -->
+  <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
+  <script>
+    // ============================================================
+    //  第一部分：配置与常量
+    // ============================================================
+    let MAX_VIDEOS = 10;               // 最多保留的视频数量（循环队列）
+    let PRELOAD_THRESHOLD = 5;         // 距离末尾多少时触发加载更多
+    let PRELOAD_COUNT = 2;             // 预加载后续视频个数
+    const PRELOAD_DELAY = 300;           // 预加载延迟（毫秒）
+
+    // ============================================================
+    //  第二部分：分类定义
+    // ============================================================
+    let CATEGORIES = [
+      { key: 'recommend', name: '推荐' },
+      /*
+      { key: 'hot',       name: '热门' },
+      { key: 'tech',      name: '科技' },
+      { key: 'life',      name: '生活' },
+      { key: 'music',     name: '音乐' },
+      { key: 'game',      name: '游戏' }
+      */
+    ];
+
+    let currentCategory = 'recommend';   // 当前选中的分类
+
+    // ============================================================
+    //  第三部分：数据存储（按分类隔离）
+    // ============================================================
+    let categoryStorage = {};
+    
+    /* cahce / source */
+    let STORAGE_TYPE = 'source'
+    
+    function dataGet(key) {
+        if (typeof source === 'undefined' || typeof cache === 'undefined') {
+            java.log('source/cache 未赋值')
+            return null
+        }
+        if (STORAGE_TYPE == 'cache') {
+            key = source.getKey() + '_' + key
+            return cache.getFromMemory(key)
+        } else {
+            return source.get(key)
+        }
+    }
+    
+    function dataPut(key, value) {
+        if (typeof source === 'undefined' || typeof cache === 'undefined') {
+            java.log('source/cache 未赋值')
+            return
+        }
+        
+        if (STORAGE_TYPE == 'cache') {
+            key = source.getKey() + '_' + key
+            cache.putMemory(key, value)
+        } else {
+            source.put(key, value)
+        }
+    }
+    
+    
+    function categoryStorageCacheGet() {
+        let data = null;
+            let dataStr =  dataGet('category-data')
+           if (!dataStr) {
+               return null
+           }
+           
+           try {
+               java.log(dataStr)
+               data = JSON.parse(dataStr)
+           } catch(err) {
+               java.log(err.message)
+               return null
+           }
+           
+           return  data
+    }
+    
+    function categoryStorageCachePut() {
+           let dataStr = JSON.stringify(categoryStorage)
+           
+           dataPut('category-data', dataStr)
+    }
+    
+    
+    /**
+ * 合并字典，只保留 base 中已有的 key，返回新对象，不修改原对象
+ * @param {Object} base - 原始对象
+ * @param {Object} updates - 新数据对象
+ * @returns {Object} 合并后的新对象
+ */
+function mergeKeepKeys(base, updates) {
+    if (!updates)  return base
+    return Object.fromEntries(
+        Object.keys(base).map(key => [key, key in updates ? updates[key] : base[key]])
+    );
+}
+
+    /**
+     * 初始化所有分类的存储结构（数据为空，待后续动态加载）
+     */
+    function initCategoryStorage() {
+        
+      CATEGORIES.forEach(cat => {
+        categoryStorage[cat.key] = {
+          videoData: [],          // 视频元数据列表
+          likeStates: [],         // 点赞状态（{ liked, count }）
+          commentsData: [],       // 评论列表（每个视频一个数组）
+          favStates: [],          // 收藏数（每个视频一个数字）
+          shareCounts: [],        // 分享数（每个视频一个数字）
+          loadCounter: 0,         // 该分类的加载计数器（用于生成唯一ID）
+          activeIndex: 0          // 最后播放的 slide 索引
+        };
+      });
+      
+      cacheData = categoryStorageCacheGet();
+      categoryStorage = mergeKeepKeys(categoryStorage, cacheData)
+    }
+
+    // 当前分类的数据引用（全局变量，便于快速访问）
+    let videoData = [];
+    let likeStates = [];
+    let commentsData = [];
+    let favStates = [];
+    let shareCounts = [];
+    let loadCounter = 0;
+    let activeIndex = 0;
+
+    /**
+     * 挂载当前分类的数据到全局变量
+     */
+
+         function mountCurrentCategoryData() {
+      const data = categoryStorage[currentCategory];
+      if (!data) return;
+      videoData = data.videoData;
+      likeStates = data.likeStates;
+      commentsData = data.commentsData;
+      favStates = data.favStates;
+      shareCounts = data.shareCounts;
+      loadCounter = data.loadCounter || 0;
+      activeIndex = data.activeIndex || 0;
+      // 重置 slide 上下文数组（与当前数据对齐）
+      slideContexts = [];
+    }
+
+    /**
+     * 保存当前分类的数据（包括 activeIndex）到存储
+     */
+    function saveCurrentCategoryData() {
+      if (categoryStorage[currentCategory]) {
+        const store = categoryStorage[currentCategory];
+        store.videoData = videoData;
+        store.likeStates = likeStates;
+        store.commentsData = commentsData;
+        store.favStates = favStates;
+        store.shareCounts = shareCounts;
+        store.loadCounter = loadCounter;
+        // 从 Swiper 实例获取当前索引
+        if (window.mySwiper) {
+          store.activeIndex = window.mySwiper.activeIndex;
+        } else {
+          store.activeIndex = activeIndex;
+        }
+      }
+    }
+
+    // ============================================================
+    //  第四部分：辅助函数
+    // ============================================================
+    function formatTime(seconds) {
+      if (isNaN(seconds) || !isFinite(seconds)) return '00:00';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    // ============================================================
+    //  第五部分：视频初始化、销毁与预加载
+    // ============================================================
+
+    /**
+     * 初始化单个视频元素（支持 HLS 与普通 MP4）
+     * @param {HTMLVideoElement} videoEl
+     * @param {Object} videoObj - 包含 src, startTime 等字段
+     * @returns {Hls|null} 若使用 HLS 则返回实例，否则 null
+     */
+    function initVideo(videoEl, videoObj) {
+      const source = videoObj.hlsSrc || videoObj.src;
+      const isHLS = videoObj.hlsSrc || (videoObj.src && videoObj.src.toLowerCase().includes('.m3u8'));
+      // 自定义起始时间（默认 2 秒）
+      const startTime = (videoObj.startTime !== undefined && !isNaN(videoObj.startTime))
+        ? videoObj.startTime
+        : 0.1;
+
+      java.log(videoObj.title + '：' + source)
+      const onLoaded = function() {
+        videoEl.removeEventListener('loadedmetadata', onLoaded);
+        if (videoEl.duration && !isNaN(videoEl.duration)) {
+          videoEl.currentTime = Math.min(startTime, videoEl.duration);
+        }
+      };
+
+      if (isHLS && Hls.isSupported()) {
+        const hls = new Hls({ enableWorker: true, lowLatencyMode: true, preload: false });
+        hls.loadSource(source);
+        hls.attachMedia(videoEl);
+        videoEl._hls = hls;
+        videoEl.addEventListener('loadedmetadata', onLoaded);
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) hls.recoverMediaError();
+        });
+        return hls;
+      } else if (isHLS && !Hls.isSupported()) {
+        videoEl.src = source;
+        videoEl.load();
+        videoEl.addEventListener('loadedmetadata', onLoaded);
+      } else {
+        videoEl.src = source;
+        videoEl.load();
+        videoEl.addEventListener('loadedmetadata', onLoaded);
+      }
+      return null;
+    }
+
+    /**
+     * 外部可重写的钩子函数：根据 videoElement 返回更新对象
+     * 默认返回 null，表示不更新
+     * @param {HTMLVideoElement} videoElement
+     * @returns {Object|null} 更新字段（author, title, tags, time, avatar, likes, faved, favs）
+     */
+    function fetchAndUpdateVideoInfo(videoElement, videoObj) {
+      // 此函数可被外部重写，以实现动态更新视频信息
+      if (typeof getVideoInfo === 'function') {
+          //java.log(JSON.stringify(videoObj))
+          if (videoObj._hasFetch)  return;
+          let res = getVideoInfo(JSON.stringify(videoObj))
+          if (res) {
+              videoObj._hasFetch = true
+              //java.log('aa：' + res)
+              return JSON.parse(res)
+          }
+      }
+      
+      return null;
+    }
+
+    /**
+     * 确保视频已初始化（若未初始化则执行 initVideo）
+     * ★ 无论是否已初始化，都会调用 fetchAndUpdateVideoInfo 钩子，
+     *    若返回非空对象，则自动更新对应 slide 的 UI 与数据
+     * @param {HTMLVideoElement} videoElement
+     */
+    function ensureVideoInitialized(videoElement) {
+      // 判断是否已初始化：有 _hls 或 src 属性非空
+       if (videoElement._hls || videoElement.src) return;
+       
+      let videoObj = videoElement._videoData;
+      if (!videoObj) return;
+      
+      // ★ 核心：同步调用外部更新钩子，返回值若为空则忽略
+      const updates = fetchAndUpdateVideoInfo(videoElement, videoObj);
+      if (updates) {
+          //videoObj = { ...videoObj, ...updates }
+          Object.assign(videoObj, updates);
+          java.log(JSON.stringify(videoObj))
+        const slide = videoElement.closest('.swiper-slide');
+        if (slide) {
+          const index = parseInt(slide.dataset.index, 10);
+          if (!isNaN(index) && index >= 0 && index < videoData.length) {
+            updateSlide(index, updates);
+          }
+        }
+      }
+      
+           initVideo(videoElement, videoObj);
+    }
+
+    /**
+     * 销毁视频资源（释放内存）
+     * @param {HTMLVideoElement} videoElement
+     */
+    function destroyVideo(videoElement) {
+      if (videoElement._hls) {
+        videoElement._hls.destroy();
+        delete videoElement._hls;
+      }
+      videoElement.removeAttribute('src');
+      videoElement.load();
+    }
+
+    /**
+     * 预加载后续几个视频
+     * @param {Swiper} swiper
+     */
+    function preloadNextVideos(swiper) {
+      const total = swiper.slides.length;
+      for (let i = 1; i <= PRELOAD_COUNT; i++) {
+        const idx = swiper.activeIndex + i;
+        if (idx < total) {
+          const slide = swiper.slides[idx];
+          const vid = slide.querySelector('video');
+          if (vid) ensureVideoInitialized(vid);
+        }
+      }
+    }
+
+    // ============================================================
+    //  第六部分：Slide DOM 上下文管理（用于高效更新）
+    // ============================================================
+    let slideContexts = []; // 存储每个 slide 的可更新 DOM 引用
+
+    /**
+     * 更新指定索引的 slide 的 UI 与数据
+     * @param {number} index - slide 索引
+     * @param {Object} updates - 包含要更新的字段
+     */
+    function updateSlide(index, updates) {
+      const ctx = slideContexts[index];
+      if (!ctx) return;
+
+      // 更新 DOM 与数据层
+      if (updates.author !== undefined) {
+        ctx.authorEl.textContent = updates.author;
+        videoData[index].author = updates.author;
+      }
+      if (updates.title !== undefined) {
+        ctx.titleEl.textContent = updates.title;
+        videoData[index].title = updates.title;
+      }
+      if (updates.tags !== undefined) {
+        ctx.tagsEl.innerHTML = '';
+        if (Array.isArray(updates.tags)) {
+          updates.tags.forEach(tag => {
+            const span = document.createElement('span');
+            span.textContent = tag;
+            ctx.tagsEl.append(span);
+          });
+        }
+        videoData[index].tags = updates.tags;
+      }
+      if (updates.time !== undefined) {
+        ctx.timeEl.textContent = updates.time;
+        videoData[index].time = updates.time;
+      }
+      if (updates.avatar !== undefined) {
+        ctx.avatarImg.src = updates.avatar;
+      }
+      if (updates.likes !== undefined) {
+        const newCount = parseInt(updates.likes, 10);
+        if (!isNaN(newCount) && newCount >= 0) {
+          likeStates[index].count = newCount;
+          ctx.likeCountEl.textContent = newCount;
+        }
+      }
+      if (updates.faved !== undefined) {
+        const liked = !!updates.faved;
+        likeStates[index].liked = liked;
+        ctx.likeBtn.classList.toggle('active', liked);
+      }
+      if (updates.favs !== undefined) {
+        const newCount = parseInt(updates.favs, 10);
+        if (!isNaN(newCount) && newCount >= 0) {
+          favStates[index] = newCount;
+          ctx.favCountEl.textContent = newCount;
+        }
+      }
+
+      // 保存数据
+      saveCurrentCategoryData();
+      categoryStorageCachePut();
+    }
+
+    // ============================================================
+    //  第七部分：创建 Slide 元素（保存所有可更新元素的引用）
+    // ============================================================
+    function createSlideElement(video, index) {
+      const slide = document.createElement('div');
+      slide.className = 'swiper-slide';
+      slide.dataset.index = index;
+
+      const container = document.createElement('div');
+      container.className = 'video-container';
+
+      // ----- 视频元素 -----
+      const vid = document.createElement('video');
+      vid.muted = false;
+      vid.playsInline = true;
+      vid.preload = 'metadata';
+      vid.dataset.id = video.id;
+      vid.loop = true;
+      vid._videoData = video;
+
+      // ----- 播放/暂停提示 -----
+      const hint = document.createElement('div');
+      hint.className = 'play-toggle-hint';
+      hint.innerHTML = `
+        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="5,3 19,12 5,21" fill="white"/>
+        </svg>
+      `;
+      container.append(hint);
+
+      // 点击视频切换播放/暂停
+      vid.addEventListener('click', (e) => {
+        const progressBar = container.querySelector('.progress-bar');
+        if (!progressBar) return;
+        const rect = progressBar.getBoundingClientRect();
+        if (e.clientY >= rect.top) return; // 点击进度条区域不处理
+
+        ensureVideoInitialized(vid);
+        if (vid.paused) {
+          vid.play().catch(() => {});
+          hint.classList.remove('show');
+        } else {
+          vid.pause();
+          hint.classList.add('show');
+        }
+      });
+
+      // ----- 覆盖层（信息与操作按钮） -----
+      const overlayDiv = document.createElement('div');
+      overlayDiv.className = 'slide-overlay';
+
+      // ---- 左下角信息 ----
+      const topInfo = document.createElement('div');
+      topInfo.className = 'top-info';
+      const authorLine = document.createElement('div');
+      authorLine.className = 'author';
+      authorLine.textContent = video.author;
+      const titleLine = document.createElement('div');
+      titleLine.className = 'title';
+      titleLine.textContent = video.title;
+      const tagsLine = document.createElement('div');
+      tagsLine.className = 'tags';
+      video.tags.forEach(tag => { const span = document.createElement('span'); span.textContent = tag; tagsLine.append(span); });
+      const timeLine = document.createElement('div');
+      timeLine.className = 'time';
+      timeLine.textContent = video.time;
+      topInfo.append(authorLine, titleLine, tagsLine, timeLine);
+
+      // ---- 右侧操作栏 ----
+      const actions = document.createElement('div');
+      actions.className = 'actions';
+
+      // 头像
+      const avatarWrap = document.createElement('div');
+      avatarWrap.className = 'action-avatar';
+      const avatarLink = document.createElement('a');
+      avatarLink.className = 'avatar-link';
+      avatarLink.href = 'javascript:void(0)';
+      const avatarImg = document.createElement('img');
+      avatarImg.src = video.poster || '/static/web/images/default.jpeg';
+      avatarImg.alt = 'avatar';
+      avatarImg.width = 48;
+      avatarImg.height = 48;
+      avatarImg.loading = 'lazy';
+      avatarImg.decoding = 'async';
+      avatarLink.append(avatarImg);
+      avatarWrap.append(avatarLink);
+      actions.append(avatarWrap);
+
+      // 点赞
+      const likeBtn = document.createElement('button');
+      likeBtn.className = 'btn-like';
+      const likeState = likeStates[index];
+      likeBtn.innerHTML = `
+        <span class="icon">
+          <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        </span>
+        <span class="count">${likeState.count}</span>
+      `;
+      if (likeState.liked) likeBtn.classList.add('active');
+      const likeCountEl = likeBtn.querySelector('.count');
+      likeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const state = likeStates[index];
+        if (!state.liked) { state.count += 1; state.liked = true; likeBtn.classList.add('active'); }
+        else { state.count -= 1; state.liked = false; likeBtn.classList.remove('active'); }
+        likeCountEl.textContent = state.count;
+        saveCurrentCategoryData();
+      });
+      actions.append(likeBtn);
+
+      // 评论（点击打开评论面板）
+      const commentBtn = document.createElement('button');
+      commentBtn.className = 'btn-comment';
+      const commentCount = commentsData[index].length;
+      commentBtn.innerHTML = `
+        <span class="icon">
+          <svg viewBox="0 0 24 24"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        </span>
+        <span class="count">${commentCount}</span>
+      `;
+      commentBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        openCommentPanel(index);
+      });
+      actions.append(commentBtn);
+
+      // 收藏
+      const favBtn = document.createElement('button');
+      favBtn.className = 'btn-fav';
+      const favCount = favStates[index] || 0;
+      favBtn.innerHTML = `
+        <span class="icon">
+          <svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        </span>
+        <span class="count">${favCount}</span>
+      `;
+      const favCountEl = favBtn.querySelector('.count');
+      favBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const current = parseInt(favCountEl.textContent, 10) || 0;
+        const newCount = favBtn.classList.contains('active') ? current - 1 : current + 1;
+        favBtn.classList.toggle('active');
+        favCountEl.textContent = newCount;
+        favStates[index] = newCount;
+        saveCurrentCategoryData();
+      });
+      actions.append(favBtn);
+
+      // 分享
+      const shareBtn = document.createElement('button');
+      shareBtn.className = 'btn-share';
+      const shareCount = shareCounts[index] || 0;
+      shareBtn.innerHTML = `
+        <span class="icon">
+          <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="6" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="18" cy="19" r="3" stroke="currentColor" stroke-width="2" fill="none"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49" stroke="currentColor" stroke-width="2"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49" stroke="currentColor" stroke-width="2"/></svg>
+        </span>
+        <span class="count">${shareCount}</span>
+      `;
+      shareBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (navigator.share) {
+          navigator.share({ title: video.title, text: '看看这个视频', url: location.href }).catch(() => {});
+        } else {
+          alert('分享功能：复制链接或转发');
+        }
+        const current = parseInt(shareBtn.querySelector('.count').textContent, 10) || 0;
+        const newCount = current + 1;
+        shareBtn.querySelector('.count').textContent = newCount;
+        shareCounts[index] = newCount;
+        saveCurrentCategoryData();
+      });
+      actions.append(shareBtn);
+
+      // 静音
+      const muteBtn = document.createElement('button');
+      muteBtn.className = 'btn-mute';
+      muteBtn.innerHTML = `
+        <span class="icon">
+          <svg viewBox="0 0 24 24" id="mute-icon">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke="currentColor" stroke-width="2" fill="none"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" stroke-width="2" fill="none"/>
+          </svg>
+        </span>
+      `;
+      muteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const v = container.querySelector('video');
+        v.muted = !v.muted;
+        const svg = muteBtn.querySelector('#mute-icon');
+        if (v.muted) {
+          svg.innerHTML = `<path d="M11 5L6 9H2v6h4l5 4V5z" stroke="currentColor" stroke-width="2" fill="none"/><line x1="23" y1="9" x2="17" y2="15" stroke="currentColor" stroke-width="2"/><line x1="17" y1="9" x2="23" y2="15" stroke="currentColor" stroke-width="2"/>`;
+        } else {
+          svg.innerHTML = `<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" stroke="currentColor" stroke-width="2" fill="none"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" stroke-width="2" fill="none"/>`;
+        }
+      });
+      actions.append(muteBtn);
+
+      // 全屏
+      const fsBtn = document.createElement('button');
+      fsBtn.className = 'btn-fullscreen';
+      fsBtn.innerHTML = `
+        <span class="icon">
+          <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+        </span>
+      `;
+      fsBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen();
+        }
+      });
+      actions.append(fsBtn);
+
+      // ---- 进度条（支持拖拽） ----
+      const progressBar = document.createElement('div');
+      progressBar.className = 'progress-bar';
+      const progressTime = document.createElement('div');
+      progressTime.className = 'progress-time';
+      progressTime.textContent = '00:00 / 00:00';
+      progressBar.append(progressTime);
+      const track = document.createElement('div');
+      track.className = 'progress-track';
+      progressBar.append(track);
+      const progressPlayed = document.createElement('div');
+      progressPlayed.className = 'progress-played';
+      progressBar.append(progressPlayed);
+      const handle = document.createElement('div');
+      handle.className = 'progress-handle';
+      progressPlayed.append(handle);
+
+      let isDragging = false;
+      let uiShown = false;
+      let startPercent = 0;
+      let offsetPercent = 0;
+      let lastX = 0;
+
+      const onDragStart = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        isDragging = true;
+        uiShown = false;
+        ensureVideoInitialized(vid);
+        if (vid.duration && !isNaN(vid.duration)) {
+          startPercent = vid.currentTime / vid.duration;
+        } else {
+          startPercent = 0;
+        }
+        offsetPercent = 0;
+        let clientX = e.clientX;
+        if (e.type.startsWith('touch')) {
+          clientX = e.touches[0].clientX;
+        }
+        lastX = clientX;
+
+        document.addEventListener('mousemove', onDragMove);
+        document.addEventListener('mouseup', onDragEnd);
+        document.addEventListener('touchmove', onDragMove, { passive: false });
+        document.addEventListener('touchend', onDragEnd);
+      };
+
+      const onDragMove = (e) => {
+        if (!isDragging) return;
+        e.preventDefault();
+        let clientX = e.clientX;
+        if (e.type.startsWith('touch')) {
+          clientX = e.touches[0].clientX;
+        }
+        if (clientX === lastX) return;
+
+        const rect = progressBar.getBoundingClientRect();
+        const barWidth = rect.width;
+        if (barWidth === 0) return;
+
+        const deltaX = clientX - lastX;
+        const deltaPercent = deltaX / barWidth;
+        let newOffset = offsetPercent + deltaPercent;
+        let newTotal = startPercent + newOffset;
+        if (newTotal < 0) {
+          newOffset = -startPercent;
+        } else if (newTotal > 1) {
+          newOffset = 1 - startPercent;
+        }
+        offsetPercent = newOffset;
+        lastX = clientX;
+
+        const currentPercent = startPercent + offsetPercent;
+        progressPlayed.style.width = (currentPercent * 100) + '%';
+        if (vid.duration) {
+          const currentTime = currentPercent * vid.duration;
+          progressTime.textContent = `${formatTime(currentTime)} / ${formatTime(vid.duration)}`;
+        }
+
+        if (!uiShown) {
+          uiShown = true;
+          progressBar.classList.add('dragging');
+          progressTime.classList.add('show');
+          topInfo.classList.add('hidden');
+          actions.classList.add('hidden');
+        }
+      };
+
+      const onDragEnd = (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+        uiShown = false;
+        progressBar.classList.remove('dragging');
+        progressTime.classList.remove('show');
+        topInfo.classList.remove('hidden');
+        actions.classList.remove('hidden');
+
+        document.removeEventListener('mousemove', onDragMove);
+        document.removeEventListener('mouseup', onDragEnd);
+        document.removeEventListener('touchmove', onDragMove);
+        document.removeEventListener('touchend', onDragEnd);
+
+        const finalPercent = startPercent + offsetPercent;
+        const clamped = Math.min(1, Math.max(0, finalPercent));
+        if (vid.duration && !isNaN(vid.duration)) {
+          vid.currentTime = clamped * vid.duration;
+          progressPlayed.style.width = (clamped * 100) + '%';
+          progressTime.textContent = `${formatTime(clamped * vid.duration)} / ${formatTime(vid.duration)}`;
+        }
+      };
+
+      progressBar.addEventListener('mousedown', onDragStart);
+      progressBar.addEventListener('touchstart', onDragStart, { passive: false });
+      handle.addEventListener('mousedown', (e) => { e.stopPropagation(); onDragStart(e); });
+      handle.addEventListener('touchstart', (e) => { e.stopPropagation(); onDragStart(e); }, { passive: false });
+
+      // 组装 DOM
+      overlayDiv.append(topInfo, actions);
+      container.append(vid, overlayDiv, progressBar);
+      slide.append(container);
+
+      // ---- 保存所有可更新元素的引用到 context ----
+      const ctx = {
+        authorEl: authorLine,
+        titleEl: titleLine,
+        tagsEl: tagsLine,
+        timeEl: timeLine,
+        avatarImg: avatarImg,
+        likeBtn: likeBtn,
+        likeCountEl: likeCountEl,
+        favBtn: favBtn,
+        favCountEl: favCountEl,
+      };
+      slideContexts[index] = ctx;
+
+      // ---- 视频事件 ----
+      vid.addEventListener('timeupdate', () => {
+        if (vid.duration && !isDragging && !isNaN(vid.duration)) {
+          const pct = (vid.currentTime / vid.duration) * 100;
+          progressPlayed.style.width = pct + '%';
+        }
+      });
+
+      vid.addEventListener('play', () => { hint.classList.remove('show'); });
+      vid.addEventListener('pause', () => { if (!vid.ended) hint.classList.add('show'); });
+
+      return slide;
+    }
+
+    // ============================================================
+    //  第八部分：渲染、追加与移除 Slide
+    // ============================================================
+
+    /**
+     * 根据当前 videoData 重新渲染所有 slide
+     */
+    function renderAllSlides() {
+      swiperWrapper.innerHTML = '';
+      slideContexts = [];
+      videoData.forEach((v, i) => {
+        const slide = createSlideElement(v, i);
+        swiperWrapper.append(slide);
+      });
+    }
+
+    /**
+     * 追加新视频到列表末尾
+     * @param {Array} newVideos - 新视频对象数组
+     */
+    function appendSlides(newVideos) {
+      const startIndex = videoData.length;
+      newVideos.forEach((v, offset) => {
+        const idx = startIndex + offset;
+        likeStates.push({ liked: false, count: v.likes });
+        commentsData.push(v.comments.slice());
+        favStates.push(0);
+        shareCounts.push(0);
+        const slide = createSlideElement(v, idx);
+        swiperWrapper.append(slide);
+      });
+      videoData = videoData.concat(newVideos);
+      saveCurrentCategoryData();
+      categoryStorageCachePut();
+    }
+
+    /**
+     * 移除最旧的 slide（循环队列）
+     * @param {Swiper} swiper
+     */
+    function removeOldestSlide(swiper) {
+      if (!swiper || swiper.slides.length === 0) return;
+
+      // 销毁第一个 slide 的视频资源
+      const slide = swiper.slides[0];
+      const video = slide?.querySelector('video');
+      if (video) {
+        if (video._hls) {
+          video._hls.destroy();
+          delete video._hls;
+        }
+        video.removeAttribute('src');
+        video.load();
+      }
+
+      swiper.removeSlide(0);
+
+      // 同步数据
+      videoData.shift();
+      likeStates.shift();
+      commentsData.shift();
+      favStates.shift();
+      shareCounts.shift();
+      slideContexts.shift();
+
+      // 更新剩余 slide 的 data-index
+      const slides = swiper.slides;
+      for (let i = 0; i < slides.length; i++) {
+        slides[i].dataset.index = i;
+      }
+      saveCurrentCategoryData();
+    }
+
+    // ============================================================
+    //  第九部分：加载更多（模拟异步请求）
+    // ============================================================
+    let isLoading = false; // 防止重复加载
+
+    function loadMoreVideos() {
+        java.log('loadMoreVideos ++')
+        if (typeof loadVideoData !== 'function') {
+               java.log('请在预注入Js中增加loadVideoData函数！')
+         }
+        
+      if (isLoading) return;
+      isLoading = true;
+
+      const isInitial = videoData.length === 0;
+      if (isInitial) {
+        globalLoader.style.display = 'flex';
+      } else {
+        loadingMore.classList.add('show');
+      }
+
+      // 模拟网络延迟
+      const delay = 800 + Math.random() * 400;
+      setTimeout(() => {
+        const batchSize = isInitial ? 4 : (2 + Math.floor(Math.random() * 3));
+        let newVideos = [];
+        if (typeof loadVideoData !== 'function') {
+        
+        for (let i = 0; i < batchSize; i++) {
+          loadCounter++;
+          const idx = videoData.length + i;
+          const useHLS = Math.random() > 0.5;
+          const src = useHLS ? 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8' : 'https://www.w3schools.com/html/mov_bbb.mp4';
+          const now = new Date();
+          const timeStr = now.toISOString().replace('T', ' ').slice(0, 16);
+          const startTime = Math.random() * 5; // 0~5 秒随机起始位置
+
+          // 根据分类生成不同风格的内容
+          const catMap = {
+            recommend: { author: '@推荐君', title: '精选内容', tags: ['#推荐', '#热门'] },
+            hot:       { author: '@热榜君', title: '今日最火 🔥', tags: ['#热门', '#爆款'] },
+            tech:      { author: '@极客',   title: 'AI 新突破', tags: ['#AI', '#科技'] },
+            life:      { author: '@生活家', title: '日常 vlog', tags: ['#Vlog', '#日常'] },
+            music:     { author: '@音乐人', title: '即兴演奏 🎹', tags: ['#音乐', '#钢琴'] },
+            game:      { author: '@游戏王', title: '精彩操作', tags: ['#游戏', '#吃鸡'] }
+          };
+          const catInfo = catMap[currentCategory] || catMap.recommend;
+          const baseAuthors = ['@萌宠日记', '@光影捕手', '@技术流', '@美食家', '@旅行者'];
+          const baseTitles = ['悠闲午后', '城市夜景', '多彩生活', '烘焙时光', '海边日落'];
+          const author = i === 0 ? catInfo.author : baseAuthors[i % baseAuthors.length];
+          const title = i === 0 ? catInfo.title : baseTitles[i % baseTitles.length] + ` ${i}`;
+          const tags = i === 0 ? catInfo.tags : ['#新鲜', '#推荐'].slice(0, 1 + i % 2);
+
+          newVideos.push({
+            id: Date.now() + idx,
+            src: src,
+            poster: `https://picsum.photos/seed/${Date.now() + idx}/720/1280`,
+            author: author,
+            title: title,
+            tags: tags,
+            time: timeStr,
+            startTime: startTime,
+            likes: Math.floor(Math.random() * 300) + 50,
+            comments: [ { user: '路人甲', content: '前排围观' }, { user: '小可爱', content: '太棒了！' } ]
+          });
+        }
+        
+        } else {
+            
+        try {
+            res =  loadVideoData(currentCategory)
+        } catch (err) {
+            java.log(err.message)
+        }
+        newVideos = JSON.parse(res);
+        java.log('加载视频数量：' + newVideos.length)
+        
+        }
+        
+        appendSlides(newVideos);
+
+        const swiper = window.mySwiper;
+        if (swiper) {
+          swiper.update();
+          if (isInitial) {
+            activeIndex = 0;
+            swiper.slideTo(0, 0);
+          } else {
+            if (activeIndex >= videoData.length) activeIndex = videoData.length - 1;
+            swiper.slideTo(activeIndex, 0);
+          }
+          const currentSlide = swiper.slides[swiper.activeIndex];
+          if (currentSlide) {
+            const vid = currentSlide.querySelector('video');
+            if (vid) {
+              ensureVideoInitialized(vid);
+              vid.play().catch(() => {});
+            }
+          }
+        } else {
+          initSwiper();
+          if (window.mySwiper && window.mySwiper.slides.length > 0) {
+            const firstVid = window.mySwiper.slides[0].querySelector('video');
+            if (firstVid) {
+              ensureVideoInitialized(firstVid);
+              firstVid.play().catch(() => {});
+            }
+          }
+        }
+
+        globalLoader.style.display = 'none';
+        loadingMore.classList.remove('show');
+        isLoading = false;
+        console.log(`✅ 加载 ${batchSize} 个，当前总数 ${videoData.length}`);
+      }, delay);
+    }
+
+    // ============================================================
+    //  第十部分：评论面板功能
+    // ============================================================
+    let panelOpen = false;
+
+    function openCommentPanel(index) {
+      activeIndex = index;
+      const comments = commentsData[index];
+      renderComments(comments);
+      commentCountSpan.textContent = `(${comments.length})`;
+      const slide = swiperWrapper.querySelector(`.swiper-slide[data-index="${index}"]`);
+      if (slide) {
+        const btn = slide.querySelector('.btn-comment .count');
+        if (btn) btn.textContent = comments.length;
+      }
+      panel.classList.add('open');
+      overlay.classList.add('active');
+      panelOpen = true;
+      commentInput.focus();
+    }
+
+    function closeCommentPanel() {
+      panel.classList.remove('open');
+      overlay.classList.remove('active');
+      panelOpen = false;
+    }
+
+    function renderComments(comments) {
+      commentList.innerHTML = '';
+      if (!comments || comments.length === 0) {
+        commentList.innerHTML = '<div style="color:#777;text-align:center;padding:30px 0;">还没有评论，快来抢沙发吧</div>';
+        return;
+      }
+      comments.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'comment-item';
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = c.user.charAt(0).toUpperCase();
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'content';
+        contentDiv.innerHTML = `<div class="user">${c.user}</div><div class="text">${c.content}</div>`;
+        item.append(avatar, contentDiv);
+        commentList.append(item);
+      });
+    }
+
+    function sendComment() {
+      const text = commentInput.value.trim();
+      if (!text) return;
+      const comments = commentsData[activeIndex];
+      comments.push({ user: '我', content: text });
+      renderComments(comments);
+      commentCountSpan.textContent = `(${comments.length})`;
+      const slide = swiperWrapper.querySelector(`.swiper-slide[data-index="${activeIndex}"]`);
+      if (slide) {
+        const btn = slide.querySelector('.btn-comment .count');
+        if (btn) btn.textContent = comments.length;
+      }
+      commentInput.value = '';
+      commentList.scrollTop = commentList.scrollHeight;
+      saveCurrentCategoryData();
+    }
+
+    // ============================================================
+    //  第十一部分：Swiper 初始化
+    // ============================================================
+    function initSwiper() {
+      const swiper = new Swiper('.swiper', {
+        direction: 'vertical',
+        mousewheel: true,
+        keyboard: true,
+        slidesPerView: 1,
+        effect: 'slide',
+        watchSlidesProgress: true,
+        on: {
+          // 初始化完成
+          init: function() {
+            if (this.slides.length > 0) {
+              const targetIndex = Math.min(activeIndex, this.slides.length - 1);
+              this.slideTo(targetIndex, 0);
+              const slide = this.slides[targetIndex];
+              const vid = slide?.querySelector('video');
+              if (vid) {
+                ensureVideoInitialized(vid);
+                vid.play().catch(() => {});
+              }
+            }
+            setTimeout(() => {
+              preloadNextVideos(this);
+            }, PRELOAD_DELAY);
+          },
+
+          // 滑动切换时
+          slideChange: function() {
+            document.querySelectorAll('.swiper-slide video').forEach(v => v.pause());
+            const activeSlide = this.slides[this.activeIndex];
+            const vid = activeSlide?.querySelector('video');
+            if (vid) {
+              ensureVideoInitialized(vid);
+              vid.play().catch(() => {});
+              activeIndex = this.activeIndex;
+            }
+            if (panelOpen) closeCommentPanel();
+          },
+
+          // 滑动切换动画结束后
+          slideChangeTransitionEnd: function() {
+            // 预加载后续视频
+            setTimeout(() => {
+              preloadNextVideos(this);
+            }, PRELOAD_DELAY);
+
+            // 若接近末尾则加载更多
+            const total = this.slides.length;
+            if (this.activeIndex >= total - PRELOAD_THRESHOLD && !isLoading) {
+              loadMoreVideos();
+            }
+
+            // 循环队列：超出最大数量则移除最旧的 slide
+            if (this.activeIndex >= MAX_VIDEOS) {
+              removeOldestSlide(this);
+              const newIndex = this.activeIndex;
+              if (newIndex >= this.slides.length) {
+                this.slideTo(this.slides.length - 1, 0);
+              } else {
+                this.slideTo(newIndex, 0);
+              }
+              const newActive = this.slides[this.activeIndex];
+              if (newActive) {
+                const newVid = newActive.querySelector('video');
+                if (newVid) {
+                  ensureVideoInitialized(newVid);
+                  newVid.play().catch(() => {});
+                }
+              }
+            }
+            // 保存索引，便于重启后可以到上次播放未知
+            saveCurrentCategoryData();
+            categoryStorageCachePut();
+          }
+        }
+      });
+
+      window.mySwiper = swiper;
+      return swiper;
+    }
+
+    // ============================================================
+    //  第十二部分：分类切换（记住播放位置）
+    // ============================================================
+    function switchCategory(key) {
+      if (key === currentCategory) {
+        closeCategoryDropdown();
+        return;
+      }
+
+      // 保存当前分类数据（含 activeIndex）
+      saveCurrentCategoryData();
+
+      // 停止所有视频
+      document.querySelectorAll('.swiper-slide video').forEach(v => v.pause());
+
+      // 销毁 Swiper
+      if (window.mySwiper) {
+        window.mySwiper.destroy(true, true);
+        window.mySwiper = null;
+      }
+
+      // 更新当前分类
+      currentCategory = key;
+
+      // 挂载新分类的数据
+      mountCurrentCategoryData();
+
+      // 重新渲染 slide
+      swiperWrapper.innerHTML = '';
+      renderAllSlides();
+
+      // 重新初始化 Swiper
+      initSwiper();
+
+      // 更新 UI
+      document.getElementById('categoryLabel').textContent = CATEGORIES.find(c => c.key === key).name;
+      document.querySelectorAll('.category-item').forEach(el => {
+        el.classList.toggle('active', el.dataset.key === key);
+      });
+      closeCategoryDropdown();
+
+      // 如果该分类暂无数据，则加载初始数据
+      if (videoData.length === 0) {
+        loadMoreVideos();
+      }
+    }
+
+    // ============================================================
+    //  第十三部分：分类下拉菜单 UI 控制
+    // ============================================================
+    const categoryBtn = document.getElementById('categoryBtn');
+    const categoryDropdown = document.getElementById('categoryDropdown');
+    const categoryList = document.getElementById('categoryList');
+    let categoryOpen = false;
+
+    function toggleCategoryDropdown() {
+      categoryOpen = !categoryOpen;
+      categoryDropdown.classList.toggle('open', categoryOpen);
+      document.querySelector('.category-btn .arrow').classList.toggle('open', categoryOpen);
+    }
+
+    function closeCategoryDropdown() {
+      categoryOpen = false;
+      categoryDropdown.classList.remove('open');
+      document.querySelector('.category-btn .arrow').classList.remove('open');
+    }
+
+    function initCategoryUI() {
+      // 渲染分类列表
+      categoryList.innerHTML = CATEGORIES.map(c => `
+        <div class="category-item ${c.key === currentCategory ? 'active' : ''}" data-key="${c.key}">${c.name}</div>
+      `).join('');
+
+      // 绑定点击事件
+      categoryList.querySelectorAll('.category-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const key = item.dataset.key;
+          switchCategory(key);
+        });
+      });
+
+      categoryBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleCategoryDropdown();
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!e.target.closest('.category-bar')) {
+          closeCategoryDropdown();
+        }
+      });
+    }
+
+    // ============================================================
+    //  第十四部分：键盘快捷键
+    // ============================================================
+    function bindEvents() {
+      // 评论面板事件
+      closePanelBtn.addEventListener('click', closeCommentPanel);
+      overlay.addEventListener('click', closeCommentPanel);
+      sendBtn.addEventListener('click', sendComment);
+      commentInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); sendComment(); }
+      });
+
+      // 全局快捷键
+      document.addEventListener('keydown', (e) => {
+        if (panelOpen) return;
+        if (e.key === 'z' || e.key === 'Z') {
+          // 点赞当前视频
+          const slide = swiperWrapper.querySelector(`.swiper-slide[data-index="${activeIndex}"]`);
+          if (slide) {
+            const likeBtn = slide.querySelector('.btn-like');
+            if (likeBtn) likeBtn.click();
+          }
+        }
+        if (e.key === 'x' || e.key === 'X') {
+          // 打开评论
+          openCommentPanel(activeIndex);
+        }
+        if (e.key === ' ' || e.key === 'Space') {
+          // 播放/暂停
+          e.preventDefault();
+          const slide = swiperWrapper.querySelector(`.swiper-slide[data-index="${activeIndex}"]`);
+          if (slide) {
+            const vid = slide.querySelector('video');
+            if (vid) {
+              ensureVideoInitialized(vid);
+              const hint = slide.querySelector('.play-toggle-hint');
+              if (vid.paused) {
+                vid.play().catch(() => {});
+                if (hint) hint.classList.remove('show');
+              } else {
+                vid.pause();
+                if (hint) hint.classList.add('show');
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    function initCustomConfig() {
+        if (typeof CUSTOM_MAX_VIDEOS !== 'undefined') {
+            MAX_VIDEOS = CUSTOM_MAX_VIDEOS;
+        }
+         if (typeof CUSTOM_PRELOAD_THRESHOLD !== 'undefined') {
+            PRELOAD_THRESHOLD = CUSTOM_PRELOAD_THRESHOLD;
+        }
+         if (typeof CUSTOM_PRELOAD_COUNT !== 'undefined') {
+            PRELOAD_COUNT = CUSTOM_PRELOAD_COUNT;
+        }
+         if (typeof CUSTOM_CATEGORIES !== 'undefined') {
+             CATEGORIES = CUSTOM_CATEGORIES
+        }
+        if (typeof CUSTOM_DEFAULT_CATEGORIES !== 'undefined') {
+             currentCategory = CUSTOM_DEFAULT_CATEGORIES
+        } else {
+             currentCategory = CATEGORIES[0].key
+        }
+    }
+    
+
+    // ============================================================
+    //  第十五部分：启动应用
+    // ============================================================
+    // 获取 DOM 引用
+    const swiperWrapper = document.querySelector('.swiper-wrapper');
+    const panel = document.getElementById('commentPanel');
+    const overlay = document.getElementById('panelOverlay');
+    const commentList = document.getElementById('commentList');
+    const commentInput = document.getElementById('commentInput');
+    const sendBtn = document.getElementById('sendCommentBtn');
+    const closePanelBtn = document.getElementById('closePanelBtn');
+    const commentCountSpan = document.getElementById('commentCount');
+    const loadingMore = document.getElementById('loadingMore');
+    const globalLoader = document.getElementById('global-loader');
+
+    try {
+        
+        if (typeof java === 'undefined') {
+            alert('java变量未定义')
+            var java = {
+                log(str) { console.log(str) }
+            }
+        }
+        
+    initCustomConfig();
+
+    // 1. 初始化所有分类存储（空数据）
+    initCategoryStorage();
+
+    // 2. 设置默认分类并挂载数据
+    //currentCategory = 'recommend';
+    mountCurrentCategoryData(); // 此时 videoData = []
+
+    // 3. 渲染空 slide 容器
+    renderAllSlides();
+
+    // 4. 初始化 Swiper
+    initSwiper();
+
+    // 5. 初始化分类 UI
+    initCategoryUI();
+
+    // 6. 绑定事件
+    bindEvents();
+
+    // 7. 加载初始视频（异步）
+    if (videoData.length === 0)
+        loadMoreVideos();
+        
+    } catch (err) {
+        java.log(err.message)
+    }
+
+    console.log(`🚀 启动完成，当前分类：${currentCategory}，视频数：${videoData.length}`);
+  </script>
+</body>
+  </html>
