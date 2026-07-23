@@ -240,7 +240,7 @@
     #global-loader {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,1);
       z-index: 9999;
       display: none;
       align-items: center;
@@ -427,6 +427,7 @@
     
     /* cahce / source */
     let STORAGE_TYPE = 'source'
+    let STORAGE_TIME = 0
     
     function dataGet(key) {
         if (typeof source === 'undefined' || typeof cache === 'undefined') {
@@ -455,6 +456,10 @@
         }
     }
     
+    function getDateDiffHours(base) {
+        const now = Data.now()
+        return ((now - base) / (1000*60*60)).toFixed(1)
+    }
     
     function categoryStorageCacheGet() {
         let data = null;
@@ -466,6 +471,9 @@
            try {
                java.log(dataStr)
                data = JSON.parse(dataStr)
+               if (data.saveTime && STORAGE_TIME && getDateDiffHours(data.saveTime, Date.now()) > STORAGE_TIME) {
+                   return null
+               }
            } catch(err) {
                java.log(err.message)
                return null
@@ -475,7 +483,8 @@
     }
     
     function categoryStorageCachePut() {
-           let dataStr = JSON.stringify(categoryStorage)
+        categoryStorage['saveTime'] = Date.now()
+        let dataStr = JSON.stringify(categoryStorage)
            
            dataPut('category-data', dataStr)
     }
@@ -578,6 +587,55 @@ function mergeKeepKeys(base, updates) {
     // ============================================================
 
     /**
+     * 等待视频首帧就绪后隐藏全局遮罩
+     * @param {HTMLVideoElement} videoElement
+     */
+    function hideLoaderOnVideoReady(videoElement) {
+       
+	  if (globalLoader.style.display === 'none') {
+	  	return;
+	  }
+	  
+	  if (!videoElement) {
+        // 若没有视频，直接隐藏遮罩（降级）
+        globalLoader.style.display = 'none';
+        return;
+      }
+
+      // 如果视频已经足够 ready（至少 HAVE_CURRENT_DATA 或 HAVE_FUTURE_DATA）
+      if (videoElement.readyState >= 3) {
+        globalLoader.style.display = 'none';
+        return;
+      }
+
+      // 否则绑定一次性事件
+      const onCanPlay = () => {
+          java.log('canplay')
+        videoElement.removeEventListener('canplay', onCanPlay);
+        videoElement.removeEventListener('error', onError);
+        globalLoader.style.display = 'none';
+      };
+      const onError = () => {
+          java.log('play err')
+        videoElement.removeEventListener('canplay', onCanPlay);
+        videoElement.removeEventListener('error', onError);
+        // 加载失败也隐藏遮罩，避免永久卡住
+        globalLoader.style.display = 'none';
+        java.log('视频加载失败，已强制隐藏遮罩');
+      };
+
+      videoElement.addEventListener('canplay', onCanPlay, { once: true });
+      videoElement.addEventListener('error', onError, { once: true });
+      
+      // 安全兜底：若 10 秒后仍未触发，强制隐藏（避免永久卡住）
+                setTimeout(() => {
+                  if (globalLoader.style.display === 'flex') {
+                    globalLoader.style.display = 'none';
+                    alert('⚠️ 视频获取超时');
+                  }
+                }, 10000);
+    }
+    /**
      * 初始化单个视频元素（支持 HLS 与普通 MP4）
      * @param {HTMLVideoElement} videoEl
      * @param {Object} videoObj - 包含 src, startTime 等字段
@@ -598,7 +656,9 @@ function mergeKeepKeys(base, updates) {
           videoEl.currentTime = Math.min(startTime, videoEl.duration);
         }
       };
-
+      
+      hideLoaderOnVideoReady(videoEl)
+      
       if (isHLS && Hls.isSupported()) {
         const hls = new Hls({ enableWorker: true, lowLatencyMode: true, preload: false });
         hls.loadSource(source);
@@ -628,6 +688,7 @@ function mergeKeepKeys(base, updates) {
      * @returns {Object|null} 更新字段（author, title, tags, time, avatar, likes, faved, favs）
      */
     function fetchAndUpdateVideoInfo(videoElement, videoObj) {
+        try {
       // 此函数可被外部重写，以实现动态更新视频信息
       if (typeof getVideoInfo === 'function') {
           //java.log(JSON.stringify(videoObj))
@@ -638,6 +699,10 @@ function mergeKeepKeys(base, updates) {
               //java.log('aa：' + res)
               return JSON.parse(res)
           }
+      }
+      
+      } catch (err) {
+          java.log('getVideoInfo执行异常：' + err.message)
       }
       
       return null;
@@ -788,6 +853,10 @@ function mergeKeepKeys(base, updates) {
       vid.dataset.id = video.id;
       vid.loop = true;
       vid._videoData = video;
+      
+      if (video.poster) {
+          vid.poster = video.poster
+      }
 
       // ----- 播放/暂停提示 -----
       const hint = document.createElement('div');
@@ -848,7 +917,7 @@ function mergeKeepKeys(base, updates) {
       avatarLink.className = 'avatar-link';
       avatarLink.href = 'javascript:void(0)';
       const avatarImg = document.createElement('img');
-      avatarImg.src = video.poster || '/static/web/images/default.jpeg';
+      avatarImg.src = video.avatar || 'https://picsum.photos/seed/default/100/100' //'https://cdn-icons-png.magnific.com/512/14024/14024703.png'//'/static/web/images/default.jpeg';
       avatarImg.alt = 'avatar';
       avatarImg.width = 48;
       avatarImg.height = 48;
@@ -1278,8 +1347,14 @@ function mergeKeepKeys(base, updates) {
         try {
             res =  loadVideoData(currentCategory)
         } catch (err) {
-            java.log(err.message)
+            globalLoader.style.display = 'none';
+            loadingMore.classList.remove('show');
+            isLoading = false;
+            java.log('loadVideoData执行异常：' + err.message)
+            alert('loadVideoData执行异常：' + err.message)
+            return
         }
+        
         newVideos = JSON.parse(res);
         java.log('加载视频数量：' + newVideos.length)
         
@@ -1305,8 +1380,12 @@ function mergeKeepKeys(base, updates) {
               vid.play().catch(() => {});
             }
           }
+          
           if (isInitial) {
-            preloadNextVideos(swiper)
+            //preloadNextVideos(swiper)
+            setTimeout(() => {
+              preloadNextVideos(swiper);
+            }, PRELOAD_DELAY);
           } 
         } else {
           initSwiper();
@@ -1319,7 +1398,7 @@ function mergeKeepKeys(base, updates) {
           }
         }
 
-        globalLoader.style.display = 'none';
+        //globalLoader.style.display = 'none';
         loadingMore.classList.remove('show');
         isLoading = false;
         console.log(`✅ 加载 ${batchSize} 个，当前总数 ${videoData.length}`);
@@ -1634,6 +1713,12 @@ function mergeKeepKeys(base, updates) {
         } else {
              currentCategory = CATEGORIES[0].key
         }
+        if (typeof CUSTOM_STORAGE_TYPE !== 'undefined') {
+            STORAGE_TYPE = CUSTOM_STORAGE_TYPE;
+        }
+        if (typeof CUSTOM_STORAGE_TIME !== 'undefined') {
+            STORAGE_TIME = CUSTOM_STORAGE_TIME;
+        }
     }
     
 
@@ -1663,6 +1748,7 @@ function mergeKeepKeys(base, updates) {
         
     initCustomConfig();
 
+    globalLoader.style.display = 'flex';
     // 1. 初始化所有分类存储（空数据）
     initCategoryStorage();
 
@@ -1693,4 +1779,4 @@ function mergeKeepKeys(base, updates) {
     console.log(`🚀 启动完成，当前分类：${currentCategory}，视频数：${videoData.length}`);
   </script>
 </body>
-  </html>
+</html>
