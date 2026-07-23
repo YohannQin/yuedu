@@ -1620,13 +1620,64 @@ function mergeKeepKeys(base, updates) {
       document.querySelector('.category-btn .arrow').classList.remove('open');
     }
 
+    // ---------- 新增：长按刷新功能 ----------
+    let longPressTimer = null;
+    let isLongPress = false;
+    const LONG_PRESS_DELAY = 500;
+
+    /**
+     * 清空当前分类所有数据并重新加载（不保存空缓存，等新数据加载完成后自动保存）
+     */
+    function refreshCurrentCategoryData() {
+      // 停止所有视频
+      document.querySelectorAll('.swiper-slide video').forEach(v => v.pause());
+
+      // 重置加载状态
+      isLoading = false;
+
+      // 清空当前分类存储（内存中的数组置空，但不持久化）
+      const store = categoryStorage[currentCategory];
+      if (store) {
+        store.videoData = [];
+        store.likeStates = [];
+        store.commentsData = [];
+        store.favStates = [];
+        store.shareCounts = [];
+        store.loadCounter = 0;
+        store.activeIndex = 0;
+        // 不保存空数据到缓存，等新数据加载成功后再保存
+        // saveCurrentCategoryData();
+        // categoryStorageCachePut();
+      }
+
+      // 挂载空数据
+      mountCurrentCategoryData();
+
+      // 清空 slide 上下文
+      slideContexts = [];
+
+      // 清空 Swiper 内部
+      const swiper = window.mySwiper;
+      if (swiper) {
+        swiperWrapper.innerHTML = '';
+        swiper.update();
+      } else {
+        swiperWrapper.innerHTML = '';
+      }
+
+      activeIndex = 0;
+
+      // 重新加载
+      loadMoreVideos();
+    }
+
+    // ---------- 修改 initCategoryUI 以支持长按 ----------
     function initCategoryUI() {
       // 渲染分类列表
       categoryList.innerHTML = CATEGORIES.map(c => `
         <div class="category-item ${c.key === currentCategory ? 'active' : ''}" data-key="${c.key}">${c.name}</div>
       `).join('');
 
-      // 绑定点击事件
       categoryList.querySelectorAll('.category-item').forEach(item => {
         item.addEventListener('click', () => {
           const key = item.dataset.key;
@@ -1634,11 +1685,45 @@ function mergeKeepKeys(base, updates) {
         });
       });
 
+      // ---- 重新绑定分类按钮事件（完全替换原有逻辑） ----
+      // 移除之前可能绑定的监听（原代码中的匿名函数无法直接移除，但我们直接覆盖）
+      // 此处直接绑定新的监听，不再使用旧的 toggleCategoryDropdown 直接绑定。
+      // 注意：原代码中 categoryBtn 只绑定了 click 打开下拉，没有其他监听。
+
+      // 长按监听
+      categoryBtn.addEventListener('pointerdown', (e) => {
+        longPressTimer = setTimeout(() => {
+          isLongPress = true;
+          refreshCurrentCategoryData();
+          if (navigator.vibrate) navigator.vibrate(30);
+        }, LONG_PRESS_DELAY);
+      });
+
+      categoryBtn.addEventListener('pointerup', () => {
+        clearTimeout(longPressTimer);
+        // 延迟重置标记，避免点击事件误判
+        setTimeout(() => { isLongPress = false; }, 50);
+      });
+
+      categoryBtn.addEventListener('pointercancel', () => {
+        clearTimeout(longPressTimer);
+        isLongPress = false;
+      });
+
+      // 点击打开下拉（如果未触发长按）
       categoryBtn.addEventListener('click', (e) => {
         e.stopPropagation();
+        if (isLongPress) {
+          isLongPress = false;
+          return;
+        }
         toggleCategoryDropdown();
       });
 
+      // 阻止右键菜单
+      categoryBtn.addEventListener('contextmenu', (e) => e.preventDefault());
+
+      // 外部点击关闭下拉（保持不变）
       document.addEventListener('click', (e) => {
         if (!e.target.closest('.category-bar')) {
           closeCategoryDropdown();
