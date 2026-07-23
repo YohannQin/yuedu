@@ -175,6 +175,7 @@
       background: #ff2d55;
       border-radius: 3px;
       transition: width 0.1s linear, height 0.15s ease;
+      z-index: 2;
     }
     .progress-bar.dragging .progress-track { height: 12px; }
     .progress-bar.dragging .progress-played { height: 12px; }
@@ -192,11 +193,39 @@
       transition: opacity 0.2s, width 0.15s, height 0.15s;
       pointer-events: auto;
       cursor: grab;
+      z-index: 3;
     }
     .progress-bar:hover .progress-handle,
     .progress-bar.dragging .progress-handle { opacity: 1; }
     .progress-bar.dragging .progress-handle { width: 22px; height: 22px; right: -11px; }
     .progress-bar .progress-handle:active { cursor: grabbing; }
+
+    /* ----- 新增：跑马灯加载动画（覆盖在进度条之上） ----- */
+    .progress-loading {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      transform: translateY(-50%);
+      width: 100%;
+      height: 6px;
+      background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.6) 50%, transparent 100%);
+      background-size: 200% 100%;
+      animation: loading-progress 1.5s infinite linear;
+      border-radius: 3px;
+      pointer-events: none;
+      z-index: 10;              /* 位于所有进度条元素之上 */
+      display: block;           /* 默认显示，canplay后隐藏 */
+      opacity: 1;
+      transition: opacity 0.2s;
+    }
+    .progress-loading.hidden {
+      opacity: 0;
+      /* 保持 display:block 以便过渡，但完全透明不可见 */
+    }
+    @keyframes loading-progress {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
 
     /* 评论面板 */
     .comment-panel {
@@ -1071,6 +1100,13 @@ function mergeKeepKeys(base, updates) {
       handle.className = 'progress-handle';
       progressPlayed.append(handle);
 
+      // ----- 新增：跑马灯加载指示器（默认显示，canplay后隐藏） -----
+      const loadingBar = document.createElement('div');
+      loadingBar.className = 'progress-loading';
+      // 默认显示（用 display:block 控制，也可用 hidden 类控制透明度）
+      loadingBar.style.display = 'block';
+      progressBar.append(loadingBar);
+
       let isDragging = false;
       let uiShown = false;
       let startPercent = 0;
@@ -1188,7 +1224,7 @@ function mergeKeepKeys(base, updates) {
       };
       slideContexts[index] = ctx;
 
-      // ---- 视频事件 ----
+      // ---- 视频事件（包括跑马灯控制） ----
       vid.addEventListener('timeupdate', () => {
         if (vid.duration && !isDragging && !isNaN(vid.duration)) {
           const pct = (vid.currentTime / vid.duration) * 100;
@@ -1198,6 +1234,25 @@ function mergeKeepKeys(base, updates) {
 
       vid.addEventListener('play', () => { hint.classList.remove('show'); });
       vid.addEventListener('pause', () => { if (!vid.ended) hint.classList.add('show'); });
+
+      // ----- 跑马灯控制 -----
+      const showLoading = () => {
+        loadingBar.style.display = 'block';
+      };
+      const hideLoading = () => {
+        loadingBar.style.display = 'none';
+      };
+
+      vid.addEventListener('loadstart', showLoading);
+      vid.addEventListener('waiting', showLoading);
+      vid.addEventListener('canplay', hideLoading);
+      vid.addEventListener('playing', hideLoading);
+      // 如果发生错误，保持跑马灯显示（因为视频未能加载成功，用户要求显示跑马灯）
+      // 但也可选择隐藏，这里保持显示，直到切换视频
+      // 若想隐藏，可取消注释下一行
+      // vid.addEventListener('error', hideLoading);
+
+      // 初始默认显示（已通过 style.display='block' 设置），但若视频加载极快，canplay 会立即隐藏
 
       return slide;
     }
