@@ -686,7 +686,7 @@ function mergeKeepKeys(base, updates) {
         }
       };
       
-      hideLoaderOnVideoReady(videoEl)
+      //hideLoaderOnVideoReady(videoEl)
       
       if (isHLS && Hls.isSupported()) {
         const hls = new Hls({ enableWorker: true, lowLatencyMode: true, preload: false });
@@ -883,9 +883,9 @@ function mergeKeepKeys(base, updates) {
       vid.loop = true;
       vid._videoData = video;
       
-      if (video.poster) {
-          vid.poster = video.poster
-      }
+      // 默认黑图
+      default_poster = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8//8/AwAI/AL+hI2jLwAAAABJRU5ErkJggg=='
+      vid.poster = video.poster || default_poster
 
       // ----- 播放/暂停提示 -----
       const hint = document.createElement('div');
@@ -1453,7 +1453,7 @@ function mergeKeepKeys(base, updates) {
           }
         }
 
-        //globalLoader.style.display = 'none';
+        globalLoader.style.display = 'none';
         loadingMore.classList.remove('show');
         isLoading = false;
         console.log(`✅ 加载 ${batchSize} 个，当前总数 ${videoData.length}`);
@@ -1888,7 +1888,6 @@ function mergeKeepKeys(base, updates) {
         
     initCustomConfig();
 
-    globalLoader.style.display = 'flex';
     // 1. 初始化所有分类存储（空数据）
     initCategoryStorage();
 
