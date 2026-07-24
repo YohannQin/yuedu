@@ -1335,7 +1335,7 @@ function mergeKeepKeys(base, updates) {
     // ============================================================
     let isLoading = false; // 防止重复加载
 
-    function loadMoreVideos() {
+    function loadMoreVideos(refresh=false) {
         java.log('loadMoreVideos ++')
         if (typeof loadVideoData !== 'function') {
                java.log('请在预注入Js中增加loadVideoData函数！')
@@ -1400,7 +1400,11 @@ function mergeKeepKeys(base, updates) {
         } else {
             
         try {
-            res =  loadVideoData(currentCategory)
+            let para = {
+                key: currentCategory,
+                refresh: refresh
+            }
+            res =  loadVideoData(JSON.stringify(para))
         } catch (err) {
             globalLoader.style.display = 'none';
             loadingMore.classList.remove('show');
@@ -1723,7 +1727,7 @@ function mergeKeepKeys(base, updates) {
       activeIndex = 0;
 
       // 重新加载
-      loadMoreVideos();
+      loadMoreVideos(true);
     }
 
     // ---------- 修改 initCategoryUI 以支持长按 ----------
