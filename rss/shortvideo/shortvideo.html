@@ -498,7 +498,7 @@
            }
            
            try {
-               java.log(dataStr)
+               //java.log(dataStr)
                data = JSON.parse(dataStr)
                if (data.saveTime && STORAGE_TIME && getDateDiffHours(data.saveTime, Date.now()) > STORAGE_TIME) {
                    return null
@@ -519,19 +519,23 @@
     }
     
     
-    /**
- * 合并字典，只保留 base 中已有的 key，返回新对象，不修改原对象
- * @param {Object} base - 原始对象
+/**
+ * 用 updates 更新 base，只更新 base 中已有的 key，直接修改原对象
+ * @param {Object} base - 原始对象（会被修改）
  * @param {Object} updates - 新数据对象
- * @returns {Object} 合并后的新对象
+ * @returns {Object} 返回修改后的 base
  */
-function mergeKeepKeys(base, updates) {
-    if (!updates)  return base
-    return Object.fromEntries(
-        Object.keys(base).map(key => [key, key in updates ? updates[key] : base[key]])
-    );
-}
 
+function mergeKeepKeysMutate(base, updates) {
+     if (!updates)  return base;
+    
+    for (const key of Object.keys(base)) {
+        if (Object.prototype.hasOwnProperty.call(updates, key)) {
+            base[key] = updates[key];
+        }
+    }
+    return base;
+}
     /**
      * 初始化所有分类的存储结构（数据为空，待后续动态加载）
      */
@@ -550,7 +554,14 @@ function mergeKeepKeys(base, updates) {
       });
       
       cacheData = categoryStorageCacheGet();
-      categoryStorage = mergeKeepKeys(categoryStorage, cacheData)
+      categoryStorage = mergeKeepKeysMutate(categoryStorage, cacheData)
+      
+      CATEGORIES.forEach(cat => {
+          Object.assign(categoryStorage[cat.key], cat)
+      });
+      
+     // java.log(JSON.stringify(categoryStorage))
+       
     }
 
     // 当前分类的数据引用（全局变量，便于快速访问）
