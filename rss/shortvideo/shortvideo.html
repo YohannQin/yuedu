@@ -1294,8 +1294,8 @@ function mergeKeepKeysMutate(base, updates) {
         const idx = startIndex + offset;
         likeStates.push({ liked: false, count: v.likes });
         commentsData.push(v.comments.slice());
-        favStates.push(0);
-        shareCounts.push(0);
+        favStates.push(v.favs || 0);
+        shareCounts.push(v.shares || 0);
         const slide = createSlideElement(v, idx);
         swiperWrapper.append(slide);
       });
@@ -1359,6 +1359,10 @@ function mergeKeepKeysMutate(base, updates) {
       if (isInitial) {
         globalLoader.style.display = 'flex';
       } else {
+          if (categoryStorage[currentCategory].hasMore === false && refresh === false)  {
+              isLoading = false;
+              return
+          }
         loadingMore.classList.add('show');
       }
 
@@ -1908,6 +1912,7 @@ function mergeKeepKeysMutate(base, updates) {
 
     // 2. 设置默认分类并挂载数据
     //currentCategory = 'recommend';
+    document.getElementById('categoryLabel').textContent = CATEGORIES.find(c => c.key === currentCategory).name;
     mountCurrentCategoryData(); // 此时 videoData = []
 
     // 3. 渲染空 slide 容器
