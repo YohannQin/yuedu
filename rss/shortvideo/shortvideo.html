@@ -141,13 +141,14 @@
     }
     .action-avatar .avatar-link img { width: 100%; height: 100%; object-fit: cover; }
 
-    /* 进度条 */
+    /* ===== 进度条 - 移至底部 ===== */
     .progress-bar {
       position: absolute;
-      bottom: 15px;
+      bottom: 0;                      /* 原为 15px，现沉底 */
       left: 0;
       width: 100%;
-      height: 30px;
+      height: 5px;
+      padding-bottom: env(safe-area-inset-bottom, 0px); /* 适配全面屏 */
       background: transparent;
       z-index: 20;
       cursor: pointer;
@@ -160,7 +161,7 @@
       left: 0;
       transform: translateY(-50%);
       width: 100%;
-      height: 6px;
+      height: 5px;
       background: rgba(255,255,255,0.25);
       border-radius: 3px;
       transition: height 0.15s ease;
@@ -170,15 +171,15 @@
       top: 50%;
       left: 0;
       transform: translateY(-50%);
-      height: 6px;
+      height: 5px;
       width: 0%;
       background: #ff2d55;
       border-radius: 3px;
       transition: width 0.1s linear, height 0.15s ease;
       z-index: 2;
     }
-    .progress-bar.dragging .progress-track { height: 12px; }
-    .progress-bar.dragging .progress-played { height: 12px; }
+    .progress-bar.dragging .progress-track { height: 10px; }
+    .progress-bar.dragging .progress-played { height: 10px; }
     .progress-bar .progress-handle {
       position: absolute;
       right: -8px;
@@ -200,7 +201,7 @@
     .progress-bar.dragging .progress-handle { width: 22px; height: 22px; right: -11px; }
     .progress-bar .progress-handle:active { cursor: grabbing; }
 
-    /* ----- 新增：跑马灯加载动画（覆盖在进度条之上） ----- */
+    /* ----- 跑马灯加载动画（位于进度条内，自动跟随沉底） ----- */
     .progress-loading {
       position: absolute;
       top: 50%;
@@ -213,14 +214,13 @@
       animation: loading-progress 1.5s infinite linear;
       border-radius: 3px;
       pointer-events: none;
-      z-index: 10;              /* 位于所有进度条元素之上 */
-      display: block;           /* 默认显示，canplay后隐藏 */
+      z-index: 10;
+      display: block;
       opacity: 1;
       transition: opacity 0.2s;
     }
     .progress-loading.hidden {
       opacity: 0;
-      /* 保持 display:block 以便过渡，但完全透明不可见 */
     }
     @keyframes loading-progress {
       0% { background-position: -200% 0; }
@@ -997,7 +997,16 @@ function mergeKeepKeysMutate(base, updates) {
         }
       }
 
+      // ---- 标记用于区分单击与滑动 ----
+      let hasSwipedHorizontally = false;   // 用于阻止 click 事件
+
       vid.addEventListener('click', (e) => {
+        // 如果发生了水平滑动，则忽略本次点击
+        if (hasSwipedHorizontally) {
+          hasSwipedHorizontally = false;
+          return;
+        }
+
         // 点击进度条区域不处理
         const progressBar = container.querySelector('.progress-bar');
         if (progressBar) {
@@ -1211,13 +1220,28 @@ function mergeKeepKeysMutate(base, updates) {
       handle.className = 'progress-handle';
       progressPlayed.append(handle);
 
-      // ----- 新增：跑马灯加载指示器（默认显示，canplay后隐藏） -----
+      // ----- 跑马灯加载指示器（默认显示，canplay后隐藏） -----
       const loadingBar = document.createElement('div');
       loadingBar.className = 'progress-loading';
-      // 默认显示（用 display:block 控制，也可用 hidden 类控制透明度）
       loadingBar.style.display = 'block';
       progressBar.append(loadingBar);
 
+      // ========== 公共进度更新函数（供鼠标拖拽和全屏滑动复用） ==========
+      function updateProgressFromClientX(clientX) {
+        const rect = progressBar.getBoundingClientRect();
+        const barWidth = rect.width;
+        if (barWidth === 0) return 0;
+        let percent = (clientX - rect.left) / barWidth;
+        percent = Math.min(1, Math.max(0, percent));
+        progressPlayed.style.width = (percent * 100) + '%';
+        if (vid.duration && !isNaN(vid.duration)) {
+          const currentTime = percent * vid.duration;
+          progressTime.textContent = `${formatTime(currentTime)} / ${formatTime(vid.duration)}`;
+        }
+        return percent;
+      }
+
+      // ---- 鼠标拖拽进度（保留原有逻辑，但使用公共函数） ----
       let isDragging = false;
       let uiShown = false;
       let startPercent = 0;
@@ -1311,10 +1335,92 @@ function mergeKeepKeysMutate(base, updates) {
         }
       };
 
+      // 只保留鼠标事件，触摸由容器统一处理（全屏滑动）
       progressBar.addEventListener('mousedown', onDragStart);
-      progressBar.addEventListener('touchstart', onDragStart, { passive: false });
-      handle.addEventListener('mousedown', (e) => { e.stopPropagation(); onDragStart(e); });
-      handle.addEventListener('touchstart', (e) => { e.stopPropagation(); onDragStart(e); }, { passive: false });
+      // progressBar 和 handle 的 touch 事件已移除，由 container 全屏手势接管
+
+      // ---- 全屏水平滑动快进/快退（新增） ----
+      let touchStartX = 0, touchStartY = 0;
+      let isHorizontalSwipe = false;
+
+      container.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        isHorizontalSwipe = false;
+        hasSwipedHorizontally = false;
+      }, { passive: true });
+
+      container.addEventListener('touchmove', (e) => {
+        const touch = e.touches[0];
+        const deltaX = touch.clientX - touchStartX;
+        const deltaY = touch.clientY - touchStartY;
+
+        // 判断为水平滑动：水平位移 > 垂直位移，且超过阈值（10px）
+        if (!isHorizontalSwipe && Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+          isHorizontalSwipe = true;
+          hasSwipedHorizontally = true;   // 标记，用于屏蔽单击
+          // 阻止 Swiper 的垂直滚动
+          e.preventDefault();
+          // 显示拖拽 UI
+          progressBar.classList.add('dragging');
+          topInfo.classList.add('hidden');
+          actions.classList.add('hidden');
+          progressTime.classList.add('show');
+          // 记录起始进度（当前视频进度）
+          if (vid.duration && !isNaN(vid.duration)) {
+            startPercent = vid.currentTime / vid.duration;
+          } else {
+            startPercent = 0;
+          }
+          offsetPercent = 0;
+          lastX = touch.clientX;
+        }
+
+        if (isHorizontalSwipe) {
+          e.preventDefault(); // 继续阻止滚动
+          const clientX = touch.clientX;
+          const rect = progressBar.getBoundingClientRect();
+          const barWidth = rect.width;
+          if (barWidth === 0) return;
+
+          const deltaX = clientX - lastX;
+          const deltaPercent = deltaX / barWidth;
+          let newOffset = offsetPercent + deltaPercent;
+          let newTotal = startPercent + newOffset;
+          if (newTotal < 0) newOffset = -startPercent;
+          else if (newTotal > 1) newOffset = 1 - startPercent;
+          offsetPercent = newOffset;
+          lastX = clientX;
+
+          const currentPercent = startPercent + offsetPercent;
+          progressPlayed.style.width = (currentPercent * 100) + '%';
+          if (vid.duration) {
+            const currentTime = currentPercent * vid.duration;
+            progressTime.textContent = `${formatTime(currentTime)} / ${formatTime(vid.duration)}`;
+          }
+        }
+      }, { passive: false });
+
+      container.addEventListener('touchend', (e) => {
+        if (isHorizontalSwipe) {
+          // 应用最终进度
+          const finalPercent = startPercent + offsetPercent;
+          const clamped = Math.min(1, Math.max(0, finalPercent));
+          if (vid.duration && !isNaN(vid.duration)) {
+            vid.currentTime = clamped * vid.duration;
+            progressPlayed.style.width = (clamped * 100) + '%';
+            progressTime.textContent = `${formatTime(clamped * vid.duration)} / ${formatTime(vid.duration)}`;
+          }
+          // 恢复 UI
+          progressBar.classList.remove('dragging');
+          topInfo.classList.remove('hidden');
+          actions.classList.remove('hidden');
+          progressTime.classList.remove('show');
+          isHorizontalSwipe = false;
+        }
+        // 注意：hasSwipedHorizontally 保持 true，直到 click 事件消费掉
+      });
 
       // 组装 DOM
       overlayDiv.append(topInfo, actions);
@@ -1337,7 +1443,7 @@ function mergeKeepKeysMutate(base, updates) {
 
       // ---- 视频事件（包括跑马灯控制） ----
       vid.addEventListener('timeupdate', () => {
-        if (vid.duration && !isDragging && !isNaN(vid.duration)) {
+        if (vid.duration && !isDragging && !isHorizontalSwipe && !isNaN(vid.duration)) {
           const pct = (vid.currentTime / vid.duration) * 100;
           progressPlayed.style.width = pct + '%';
         }
@@ -2058,4 +2164,4 @@ function mergeKeepKeysMutate(base, updates) {
     console.log(`🚀 启动完成，当前分类：${currentCategory}，视频数：${videoData.length}`);
   </script>
 </body>
-	</html>
+</html>
