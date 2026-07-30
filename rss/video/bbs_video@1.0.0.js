@@ -63,8 +63,8 @@ function artplayerResInit() {
 	// 设置 artplayer的 user agent
 	addScriptCode(`globalThis.CUSTOM_USER_AGENT = 'iphone'`);
 	// 加载artplayer的 js插件
-	loadScriptInHead('https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js');
-	loadScriptInHead('https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js');
+	addScriptFile('https://cdn.jsdelivr.net/npm/artplayer/dist/artplayer.js');
+	addScriptFile('https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.17/hls.min.js');
 	
 	addStyleCode(`
 		/* artplayer-container 的占位元素 */
