@@ -181,3 +181,4 @@ function artplayerInit(videoUrl, postImg) {
 
 }
 
+window.java = java
